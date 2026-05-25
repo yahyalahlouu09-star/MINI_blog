@@ -256,7 +256,6 @@ nav a:hover { color: var(--blanc); background: var(--border); }
   height: 420px;
   margin-bottom: 2rem;
   cursor: pointer;
-  group: true;
 }
 .featured::after {
   content: '';
@@ -378,8 +377,9 @@ nav a:hover { color: var(--blanc); background: var(--border); }
   color: var(--gris);
   line-height: 1.65;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   overflow: hidden;
   margin-bottom: 1.2rem;
 }
