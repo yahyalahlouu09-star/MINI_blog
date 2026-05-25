@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Articles</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .form-ctrl {
+      padding:0.6rem 1rem;
+      background:var(--card-bg);
+      border:1px solid var(--border);
+      border-radius:8px;
+      font-family:'DM Sans',sans-serif;
+      font-size:0.88rem;
+      color:var(--blanc);
+      outline:none;
+    }
+    .form-ctrl option { background:var(--navy2); }
+  </style>
+</head>
+<body>
+<div class="admin-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">Minimal<span>Blog</span></div>
+    <div class="sidebar-section">Navigation</div>
+    <ul class="sidebar-nav">
+      <li><a href="dashboard.html">📊 Tableau de bord</a></li>
+      <li><a href="articles.html" class="active">📝 Articles</a></li>
+      <li><a href="commentaires.html">💬 Commentaires</a></li>
+    </ul>
+    <div class="sidebar-section" style="margin-top:1.5rem">Actions</div>
+    <ul class="sidebar-nav">
+      <li><a href="../index.html" target="_blank">🌐 Voir le blog</a></li>
+      <li><a href="#" onclick="doLogout()">🚪 Déconnexion</a></li>
+    </ul>
+  </aside>
+
+  <div class="admin-main">
+    <div class="admin-topbar">
+      <h2>Gestion des Articles</h2>
+      <button class="btn btn-primary" onclick="ouvrirAjout()">+ Nouvel article</button>
+    </div>
+
+    <div class="admin-content">
+      <div style="display:flex;gap:0.8rem;margin-bottom:1.5rem;flex-wrap:wrap">
+        <select id="filtStatut" onchange="charger()" class="form-ctrl">
+          <option value="">Tous les statuts</option>
+          <option value="publie">Publiés</option>
+          <option value="brouillon">Brouillons</option>
+        </select>
+        <select id="filtCat" onchange="charger()" class="form-ctrl">
+          <option value="">Toutes les catégories</option>
+        </select>
+        <input type="text" id="filtSearch" placeholder="🔍 Rechercher…" oninput="charger()"
+          class="form-ctrl" style="flex:1;min-width:200px">
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Image</th>
+              <th>Titre</th>
+              <th>Catégorie</th>
+              <th>Auteur</th>
+              <th>Date</th>
+              <th>Statut</th>
+              <th>Coms</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="9" class="empty-state">Chargement…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ARTICLE -->
+<div class="modal-overlay" id="overlay">
+  <div class="modal" style="max-height:90vh;overflow-y:auto">
+    <div class="modal-header">
+      <h3 id="modalTitle">Nouvel article</h3>
+      <button class="btn-close" onclick="fermer()">✕</button>
+    </div>
+    <input type="hidden" id="artId">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Catégorie *</label>
+        <select id="fCat" class="form-ctrl"></select>
+      </div>
+      <div class="form-group">
+        <label>Statut</label>
+        <select id="fStatut" class="form-ctrl">
+          <option value="brouillon">✏️ Brouillon</option>
+          <option value="publie">✅ Publié</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Titre *</label>
+      <input type="text" id="fTitre" placeholder="Titre de l'article">
+    </div>
+    <div class="form-group">
+      <label>Auteur *</label>
+      <input type="text" id="fAuteur" placeholder="Nom de l'auteur">
+    </div>
+    <div class="form-group">
+      <label>Image (URL Unsplash ou autre)</label>
+      <input type="text" id="fImage" placeholder="https://images.unsplash.com/photo-…"
+        oninput="previewImage(this.value)">
+      <div id="imgPreview" style="margin-top:0.5rem;height:120px;border-radius:8px;overflow:hidden;display:none;background:var(--navy3)">
+        <img id="imgPreviewEl" style="width:100%;height:100%;object-fit:cover">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Contenu * <span style="color:var(--gris);font-weight:400;font-size:0.8rem">(Ctrl+Entrée pour sauvegarder)</span></label>
+      <textarea id="fContenu" rows="10" placeholder="Contenu de l'article… Séparez les paragraphes par une ligne vide."></textarea>
+    </div>
+    <div style="display:flex;gap:0.8rem;justify-content:flex-end;margin-top:1rem">
+      <button class="btn btn-secondary" onclick="fermer()">Annuler</button>
+      <button class="btn btn-primary" id="btnSave" onclick="sauvegarder()">💾 Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+  let catsCache = [];
+
+  // Auth + init
+  (async function() {
+    const { isAdmin } = await fetch('/api/auth/check').then(r => r.json()).catch(() => ({ isAdmin: false }));
+    if (!isAdmin) { sessionStorage.removeItem('mb2_logged'); window.location.href = 'login.html'; return; }
+    sessionStorage.setItem('mb2_logged', 'true');
+
+    // Charger catégories
+    catsCache = await DB.getCategories();
+    const filtCat = document.getElementById('filtCat');
+    const fCat    = document.getElementById('fCat');
+    catsCache.forEach(c => {
+      filtCat.innerHTML += `<option value="${c.id}">${c.icon} ${escapeHtml(c.nom)}</option>`;
+      fCat.innerHTML    += `<option value="${c.id}">${escapeHtml(c.nom)}</option>`;
+    });
+
+    await charger();
+  })();
+
+  function previewImage(url) {
+    const preview = document.getElementById('imgPreview');
+    const img     = document.getElementById('imgPreviewEl');
+    if (url) {
+      preview.style.display = 'block';
+      img.src = url;
+      img.onerror = () => { preview.style.display = 'none'; };
+    } else {
+      preview.style.display = 'none';
+    }
+  }
+
+  let chargerTimeout;
+  function charger() {
+    clearTimeout(chargerTimeout);
+    chargerTimeout = setTimeout(_charger, 300);
+  }
+
+  async function _charger() {
+    const statut = document.getElementById('filtStatut').value || null;
+    const catId  = document.getElementById('filtCat').value   || null;
+    const search = document.getElementById('filtSearch').value.trim() || null;
+    const arts   = await DB.getArticles(statut, catId, search);
+    const tbody  = document.getElementById('tbody');
+
+    if (!arts.length) {
+      tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Aucun article trouvé.</td></tr>';
+      return;
+    }
+
+    // Compter les commentaires en parallèle
+    const comsMap = {};
+    await Promise.all(arts.map(async a => {
+      const coms = await DB.getCommentaires(a.id);
+      comsMap[a.id] = coms.length;
+    }));
+
+    const catMap = {};
+    catsCache.forEach(c => { catMap[c.id] = c; });
+
+    tbody.innerHTML = arts.map(a => {
+      const cat = catMap[a.categorie_id];
+      return `
+        <tr>
+          <td style="color:var(--gris);font-weight:600">${a.id}</td>
+          <td>
+            <div style="width:48px;height:36px;border-radius:6px;overflow:hidden;background:var(--navy3)">
+              ${a.image_principale
+                ? `<img src="${escapeHtml(a.image_principale)}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='📷'">`
+                : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:1.2rem">📝</div>'
+              }
+            </div>
+          </td>
+          <td style="max-width:200px">
+            <div style="font-weight:600;color:var(--blanc);font-size:0.88rem">
+              ${escapeHtml(a.titre.substring(0, 50))}${a.titre.length > 50 ? '…' : ''}
+            </div>
+          </td>
+          <td>${cat ? `<span class="badge badge-cat">${cat.icon} ${escapeHtml(cat.nom)}</span>` : '—'}</td>
+          <td style="font-size:0.85rem">${escapeHtml(a.auteur)}</td>
+          <td style="font-size:0.82rem;color:var(--gris)">${formatDateShort(a.date_publication)}</td>
+          <td><span class="badge badge-${a.statut}">${a.statut === 'publie' ? '✅ Publié' : '✏️ Brouillon'}</span></td>
+          <td style="text-align:center;color:var(--gris)">${comsMap[a.id] || 0}</td>
+          <td>
+            <div class="actions">
+              <a href="../article.html?id=${a.id}" target="_blank" class="btn btn-secondary btn-sm">👁</a>
+              <button class="btn btn-success btn-sm" onclick="ouvrirEdit(${a.id})">✏️</button>
+              <button class="btn btn-danger btn-sm"  onclick="supprimer(${a.id})">🗑</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function ouvrirAjout() {
+    document.getElementById('modalTitle').textContent = 'Nouvel article';
+    document.getElementById('artId').value    = '';
+    document.getElementById('fTitre').value   = '';
+    document.getElementById('fAuteur').value  = '';
+    document.getElementById('fContenu').value = '';
+    document.getElementById('fImage').value   = '';
+    document.getElementById('fStatut').value  = 'brouillon';
+    document.getElementById('fCat').selectedIndex = 0;
+    document.getElementById('imgPreview').style.display = 'none';
+    document.getElementById('overlay').classList.add('open');
+    document.getElementById('fTitre').focus();
+  }
+
+  async function ouvrirEdit(id) {
+    const a = await DB.getArticleById(id);
+    if (!a) return;
+    document.getElementById('modalTitle').textContent = 'Modifier l\'article';
+    document.getElementById('artId').value    = a.id;
+    document.getElementById('fTitre').value   = a.titre;
+    document.getElementById('fAuteur').value  = a.auteur;
+    document.getElementById('fContenu').value = a.contenu;
+    document.getElementById('fImage').value   = a.image_principale || '';
+    document.getElementById('fStatut').value  = a.statut;
+    document.getElementById('fCat').value     = a.categorie_id;
+    previewImage(a.image_principale);
+    document.getElementById('overlay').classList.add('open');
+    document.getElementById('fTitre').focus();
+  }
+
+  function fermer() { document.getElementById('overlay').classList.remove('open'); }
+  document.getElementById('overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('overlay')) fermer();
+  });
+
+  async function sauvegarder() {
+    const id      = document.getElementById('artId').value;
+    const titre   = document.getElementById('fTitre').value.trim();
+    const auteur  = document.getElementById('fAuteur').value.trim();
+    const contenu = document.getElementById('fContenu').value.trim();
+    const catId   = parseInt(document.getElementById('fCat').value);
+    const statut  = document.getElementById('fStatut').value;
+    const image   = document.getElementById('fImage').value.trim();
+    const btn     = document.getElementById('btnSave');
+
+    if (!titre)   { alert('Titre obligatoire.'); return; }
+    if (!auteur)  { alert('Auteur obligatoire.'); return; }
+    if (!contenu) { alert('Contenu obligatoire.'); return; }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Sauvegarde…';
+
+    try {
+      const data = { titre, auteur, contenu, categorie_id: catId, statut, image_principale: image };
+      if (id) {
+        await DB.updateArticle(parseInt(id), data);
+        showNotification('✅ Article modifié !');
+      } else {
+        await DB.addArticle(data);
+        showNotification('✅ Article créé !');
+      }
+      fermer();
+      await charger();
+    } catch(e) {
+      showNotification('❌ ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '💾 Sauvegarder';
+    }
+  }
+
+  async function supprimer(id) {
+    const a = await DB.getArticleById(id);
+    if (!confirm(`Supprimer "${a.titre}" et ses commentaires ?`)) return;
+    await DB.deleteArticle(id);
+    showNotification('Article supprimé.', 'error');
+    await charger();
+  }
+
+  async function doLogout() {
+    await DB.logout();
+    window.location.href = 'login.html';
+  }
+
+  // Ctrl+Entrée dans la modal = sauvegarder
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'Enter' && document.getElementById('overlay').classList.contains('open')) {
+      sauvegarder();
+    }
+    if (e.key === 'Escape') fermer();
+  });
+</script>
+</body>
+</html>

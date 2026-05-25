@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Tableau de bord</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="admin-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">Minimal<span>Blog</span></div>
+    <div class="sidebar-section">Navigation</div>
+    <ul class="sidebar-nav">
+      <li><a href="dashboard.html" class="active">📊 Tableau de bord</a></li>
+      <li><a href="articles.html">📝 Articles</a></li>
+      <li><a href="commentaires.html">💬 Commentaires</a></li>
+    </ul>
+    <div class="sidebar-section" style="margin-top:1.5rem">Actions</div>
+    <ul class="sidebar-nav">
+      <li><a href="../index.html" target="_blank">🌐 Voir le blog</a></li>
+      <li><a href="#" onclick="doLogout()">🚪 Déconnexion</a></li>
+    </ul>
+  </aside>
+
+  <div class="admin-main">
+    <div class="admin-topbar">
+      <h2>Tableau de bord</h2>
+      <div style="display:flex;align-items:center;gap:0.8rem">
+        <div style="width:8px;height:8px;background:var(--teal);border-radius:50%;animation:blink 1.5s ease-in-out infinite"></div>
+        <span style="font-size:0.85rem;color:var(--gris)">Connecté en tant qu'admin</span>
+      </div>
+    </div>
+
+    <div class="admin-content">
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-number">…</div><div class="stat-label">Chargement</div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-top:1.5rem">
+        <div>
+          <h3 style="font-family:'Fraunces',serif;margin-bottom:1rem;font-size:1.1rem">📝 Articles récents</h3>
+          <div id="recentArts"><div style="color:var(--gris);font-size:0.88rem">Chargement…</div></div>
+        </div>
+        <div>
+          <h3 style="font-family:'Fraunces',serif;margin-bottom:1rem;font-size:1.1rem">⏳ Commentaires en attente</h3>
+          <div id="pendingComs"><div style="color:var(--gris);font-size:0.88rem">Chargement…</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+  // Auth check
+  (async function() {
+    const { isAdmin } = await fetch('/api/auth/check').then(r => r.json()).catch(() => ({ isAdmin: false }));
+    if (!isAdmin) { sessionStorage.removeItem('mb2_logged'); window.location.href = 'login.html'; return; }
+    sessionStorage.setItem('mb2_logged', 'true');
+    await chargerDashboard();
+  })();
+
+  async function chargerDashboard() {
+    const [allArts, allComs, cats] = await Promise.all([
+      DB.getArticles(),
+      DB.getCommentaires(),
+      DB.getCategories()
+    ]);
+
+    const publies    = allArts.filter(a => a.statut === 'publie');
+    const brouillons = allArts.filter(a => a.statut === 'brouillon');
+    const pending    = allComs.filter(c => !c.approuve);
+
+    // Stats
+    document.getElementById('statsGrid').innerHTML = [
+      { n: allArts.length,    l: 'Total articles',        i: '📝' },
+      { n: publies.length,    l: 'Publiés',               i: '✅' },
+      { n: brouillons.length, l: 'Brouillons',            i: '✏️' },
+      { n: allComs.length,    l: 'Commentaires total',    i: '💬' },
+      { n: pending.length,    l: 'En attente modération', i: '⏳' },
+      { n: cats.length,       l: 'Catégories',            i: '🏷️' }
+    ].map(s => `
+      <div class="stat-card">
+        <div class="stat-icon">${s.i}</div>
+        <div class="stat-number">${s.n}</div>
+        <div class="stat-label">${s.l}</div>
+      </div>
+    `).join('');
+
+    // Articles récents
+    document.getElementById('recentArts').innerHTML = allArts.slice(0, 5).map(a => `
+      <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:0.9rem 1.1rem;margin-bottom:0.7rem;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:0.88rem;font-weight:600;color:var(--blanc);margin-bottom:0.2rem">
+            ${escapeHtml(a.titre.substring(0, 45))}${a.titre.length > 45 ? '…' : ''}
+          </div>
+          <div style="font-size:0.75rem;color:var(--gris)">${formatDateShort(a.date_publication)} · ${escapeHtml(a.auteur)}</div>
+        </div>
+        <span class="badge badge-${a.statut}">${a.statut === 'publie' ? 'Publié' : 'Brouillon'}</span>
+      </div>
+    `).join('') || '<div class="empty-state">Aucun article.</div>';
+
+    // Commentaires en attente
+    document.getElementById('pendingComs').innerHTML = pending.slice(0, 4).map(c => `
+      <div style="background:var(--card-bg);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:10px;padding:0.9rem 1.1rem;margin-bottom:0.7rem">
+        <div style="display:flex;justify-content:space-between;margin-bottom:0.4rem">
+          <span style="font-weight:600;font-size:0.85rem;color:var(--blanc)">👤 ${escapeHtml(c.pseudo)}</span>
+          <span style="font-size:0.75rem;color:var(--gris)">${formatDateShort(c.date_commentaire)}</span>
+        </div>
+        <div style="font-size:0.82rem;color:var(--gris);margin-bottom:0.6rem">${escapeHtml(c.contenu.substring(0, 80))}…</div>
+        <div style="display:flex;gap:0.5rem">
+          <button class="btn btn-success btn-sm" onclick="approuver(${c.id})">✓ Approuver</button>
+          <button class="btn btn-danger btn-sm"  onclick="supprimer(${c.id})">✗ Supprimer</button>
+        </div>
+      </div>
+    `).join('') || '<div class="empty-state" style="padding:1.5rem">🎉 Aucun commentaire en attente !</div>';
+  }
+
+  async function approuver(id) {
+    await DB.approuverCommentaire(id);
+    showNotification('✅ Commentaire approuvé !');
+    await chargerDashboard();
+  }
+  async function supprimer(id) {
+    if (!confirm('Supprimer ce commentaire ?')) return;
+    await DB.supprimerCommentaire(id);
+    showNotification('Supprimé.', 'error');
+    await chargerDashboard();
+  }
+  async function doLogout() {
+    await DB.logout();
+    window.location.href = 'login.html';
+  }
+</script>
+</body>
+</html>

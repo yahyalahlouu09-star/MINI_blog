@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MinimalBlog — Accueil</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    @keyframes fadeInUp {
+      from { opacity:0; transform:translateY(24px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .card { animation: fadeInUp 0.5s ease both; }
+    .card:nth-child(1){animation-delay:0.05s}
+    .card:nth-child(2){animation-delay:0.1s}
+    .card:nth-child(3){animation-delay:0.15s}
+    .card:nth-child(4){animation-delay:0.2s}
+    .card:nth-child(5){animation-delay:0.25s}
+    .card:nth-child(6){animation-delay:0.3s}
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <a href="index.html" class="logo">Minimal<span>Blog</span></a>
+  <nav>
+    <a href="index.html">Accueil</a>
+    <a href="index.html#articles">Articles</a>
+    <a href="admin/login.html" class="btn-admin">⚡ Admin</a>
+  </nav>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-content">
+    <div class="hero-eyebrow">Blog en direct</div>
+    <h1>Des idées qui <em>illuminent</em> le monde</h1>
+    <p>Articles sur la technologie, les voyages, la science et la culture — écrits avec passion et précision.</p>
+    <div class="search-wrap">
+      <input type="text" id="searchInput" placeholder="Rechercher un article...">
+      <button onclick="rechercherArticles()">→</button>
+    </div>
+  </div>
+</section>
+
+<!-- CONTENU PRINCIPAL -->
+<div class="container" id="articles">
+
+  <!-- Article à la une -->
+  <div id="featuredSection"></div>
+
+  <!-- Catégories + titre section -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin:2.5rem 0 1rem;flex-wrap:wrap;gap:1rem">
+    <h2 style="font-family:'Fraunces',serif;font-size:1.4rem;font-weight:600">
+      Derniers articles
+    </h2>
+    <div class="cats-scroll" id="catsFilter" style="margin:0">
+      <button class="cat-pill active" onclick="filtrerCategorie(null,this)">Tous</button>
+    </div>
+  </div>
+
+  <!-- Grille articles -->
+  <div class="articles-grid" id="articlesGrid">
+    <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--gris)">Chargement…</div>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination" id="pagination"></div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <p>&copy; 2025 <strong>MinimalBlog</strong> — Projet BD ESISA · Pr. FENNANE SALMA</p>
+</footer>
+
+<script src="js/api.js"></script>
+<script>
+  let pageActuelle = 1;
+  const PAR_PAGE = 6;
+  let categorieActive = null;
+  let rechercheActive = '';
+  let featuredId = null;
+
+  // ---- Initialisation principale ----
+  (async function() {
+    // Charger les catégories
+    const cats = await DB.getCategories();
+    const filter = document.getElementById('catsFilter');
+    cats.forEach(cat => {
+      const btn = document.createElement('button');
+      btn.className = 'cat-pill';
+      btn.textContent = `${cat.icon} ${cat.nom}`;
+      btn.onclick = function() { filtrerCategorie(cat.id, this); };
+      filter.appendChild(btn);
+    });
+
+    // Charger l'article à la une
+    await afficherFeatured();
+
+    // Charger la grille
+    await afficherArticles();
+  })();
+
+  // ---- Article à la une ----
+  async function afficherFeatured() {
+    const featured = await DB.getFeatured();
+    if (!featured) return;
+    featuredId = featured.id;
+
+    const cat  = await DB.getCategorieById(featured.categorie_id);
+    const coms = await DB.getCommentaires(featured.id, true);
+
+    document.getElementById('featuredSection').innerHTML = `
+      <div style="margin-top:2.5rem">
+        <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem">
+          <div style="width:20px;height:2px;background:var(--teal)"></div>
+          <span style="font-size:0.75rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--teal);font-weight:600">À la une</span>
+        </div>
+        <div class="featured" onclick="window.location='article.html?id=${featured.id}'">
+          <span class="featured-badge">✦ À LA UNE</span>
+          <img src="${escapeHtml(featured.image_principale)}" alt="${escapeHtml(featured.titre)}"
+            onerror="this.parentElement.style.background='linear-gradient(135deg,#1f2937,#374151)'">
+          <div class="featured-content">
+            <span class="featured-tag">${cat ? escapeHtml(cat.nom) : 'Article'}</span>
+            <h2>${escapeHtml(featured.titre)}</h2>
+            <div class="featured-meta">
+              <span>✍️ ${escapeHtml(featured.auteur)}</span>
+              <span>·</span>
+              <span>📅 ${formatDate(featured.date_publication)}</span>
+              <span>·</span>
+              <span>💬 ${coms.length} commentaire${coms.length !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ---- Filtrer par catégorie ----
+  async function filtrerCategorie(id, btn) {
+    categorieActive = id;
+    pageActuelle = 1;
+    document.querySelectorAll('.cat-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    await afficherArticles();
+  }
+
+  // ---- Recherche ----
+  async function rechercherArticles() {
+    rechercheActive = document.getElementById('searchInput').value.trim();
+    pageActuelle = 1;
+    await afficherArticles();
+  }
+  document.getElementById('searchInput').addEventListener('keyup', async e => {
+    if (e.key === 'Enter') await rechercherArticles();
+    if (!e.target.value) { rechercheActive = ''; await afficherArticles(); }
+  });
+
+  // ---- Afficher la grille ----
+  async function afficherArticles() {
+    const grid = document.getElementById('articlesGrid');
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--gris)">Chargement…</div>';
+
+    let arts = await DB.getArticles('publie', categorieActive, rechercheActive || null);
+
+    // Exclure le featured de la grille principale (sauf si filtre actif)
+    if (featuredId && !categorieActive && !rechercheActive) {
+      arts = arts.filter(a => a.id !== featuredId);
+    }
+
+    const total      = arts.length;
+    const totalPages = Math.ceil(total / PAR_PAGE);
+    const page       = arts.slice((pageActuelle - 1) * PAR_PAGE, pageActuelle * PAR_PAGE);
+
+    if (page.length === 0) {
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+        <span class="icon">🔍</span>
+        Aucun article trouvé.
+      </div>`;
+      document.getElementById('pagination').innerHTML = '';
+      return;
+    }
+
+    // Charger catégories en une fois
+    const allCats = await DB.getCategories();
+    const catMap  = {};
+    allCats.forEach(c => { catMap[c.id] = c; });
+
+    // Charger le nombre de commentaires par article
+    const comsCountMap = {};
+    await Promise.all(page.map(async a => {
+      const coms = await DB.getCommentaires(a.id, true);
+      comsCountMap[a.id] = coms.length;
+    }));
+
+    grid.innerHTML = page.map(a => {
+      const cat    = catMap[a.categorie_id];
+      const extrait = a.contenu.replace(/\n/g, ' ').substring(0, 130) + '…';
+      const initls = initials(a.auteur);
+      const nbComs = comsCountMap[a.id] || 0;
+      return `
+        <div class="card" onclick="window.location='article.html?id=${a.id}'">
+          <div class="card-thumb">
+            ${a.image_principale
+              ? `<img src="${escapeHtml(a.image_principale)}" alt="${escapeHtml(a.titre)}" loading="lazy"
+                   onerror="this.parentElement.style.background='linear-gradient(135deg,#1f2937,#374151)';this.remove()">`
+              : `<div style="height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--navy2),var(--navy3));color:var(--gris);font-size:3rem">📝</div>`
+            }
+            <span class="card-cat">${cat ? `${cat.icon} ${escapeHtml(cat.nom)}` : 'Divers'}</span>
+          </div>
+          <div class="card-body">
+            <div class="card-title">${escapeHtml(a.titre)}</div>
+            <div class="card-excerpt">${escapeHtml(extrait)}</div>
+            <div class="card-footer">
+              <div class="card-author">
+                <div class="author-avatar">${initls}</div>
+                <div>
+                  <div class="card-author-name">${escapeHtml(a.auteur)}</div>
+                  <div class="card-date">${formatDateShort(a.date_publication)}</div>
+                </div>
+              </div>
+              <span class="read-link" style="display:flex;align-items:center;gap:0.4rem">
+                💬 ${nbComs} <span>→</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    afficherPagination(totalPages);
+  }
+
+  function afficherPagination(total) {
+    const div = document.getElementById('pagination');
+    if (total <= 1) { div.innerHTML = ''; return; }
+    let html = '';
+    for (let i = 1; i <= total; i++) {
+      html += `<button class="page-btn ${i === pageActuelle ? 'active' : ''}" onclick="changerPage(${i})">${i}</button>`;
+    }
+    div.innerHTML = html;
+  }
+
+  async function changerPage(n) {
+    pageActuelle = n;
+    await afficherArticles();
+    window.scrollTo({ top: document.getElementById('articles').offsetTop - 80, behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>
