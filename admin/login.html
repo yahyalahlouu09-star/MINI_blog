@@ -22,7 +22,7 @@
       <label>Mot de passe</label>
       <input type="password" id="password" value="admin123" autocomplete="current-password">
     </div>
-    <button class="btn btn-primary" id="btnLogin"
+    <button class="btn btn-primary"
       style="width:100%;justify-content:center;margin-top:0.5rem" onclick="seConnecter()">
       Se connecter →
     </button>
@@ -34,37 +34,20 @@
     </div>
   </div>
 </div>
-<script src="../js/api.js"></script>
+<script src="../js/db.js"></script>
 <script>
-  // Si déjà connecté côté serveur, rediriger
-  (async function() {
-    const { isAdmin } = await fetch('/api/auth/check').then(r => r.json()).catch(() => ({ isAdmin: false }));
-    if (isAdmin) {
-      sessionStorage.setItem('mb2_logged', 'true');
-      window.location.href = 'dashboard.html';
-    }
-  })();
+  DB.init();
+  if (DB.isLoggedIn()) window.location.href = 'dashboard.html';
 
-  async function seConnecter() {
-    const btn = document.getElementById('btnLogin');
+  function seConnecter() {
     const err = document.getElementById('errMsg');
     err.style.display = 'none';
-    btn.disabled = true;
-    btn.textContent = 'Connexion…';
-
-    const login      = document.getElementById('login').value.trim();
-    const password   = document.getElementById('password').value;
-    const ok = await DB.login(login, password);
-
-    if (ok) {
+    if (DB.login(document.getElementById('login').value.trim(), document.getElementById('password').value)) {
       window.location.href = 'dashboard.html';
     } else {
       err.style.display = 'block';
-      btn.disabled = false;
-      btn.textContent = 'Se connecter →';
     }
   }
-
   document.getElementById('password').addEventListener('keyup', e => {
     if (e.key === 'Enter') seConnecter();
   });

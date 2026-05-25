@@ -11,12 +11,6 @@
       from { opacity:0; transform:translateY(12px); }
       to   { opacity:1; transform:translateY(0); }
     }
-    .comment-count-badge {
-      display:inline-flex;align-items:center;gap:0.4rem;
-      background:rgba(15,244,198,0.1);border:1px solid rgba(15,244,198,0.25);
-      color:var(--teal);padding:0.25rem 0.75rem;border-radius:20px;
-      font-size:0.78rem;font-weight:700;
-    }
     .btn-submit-com {
       display:inline-flex;align-items:center;gap:0.5rem;
       background:var(--teal);color:var(--navy);
@@ -24,8 +18,7 @@
       font-family:'DM Sans',sans-serif;font-size:0.9rem;font-weight:700;
       cursor:pointer;transition:opacity 0.2s;
     }
-    .btn-submit-com:disabled { opacity:0.5;cursor:not-allowed; }
-    .btn-submit-com:hover:not(:disabled) { opacity:0.85; }
+    .btn-submit-com:hover { opacity:0.85; }
   </style>
 </head>
 <body>
@@ -38,32 +31,22 @@
   </nav>
 </header>
 
-<!-- Article hero image -->
 <div id="articleHero"></div>
+<div id="articleBody"></div>
 
-<!-- Article body -->
-<div id="articleBody">
-  <div class="empty-state" style="padding:6rem 2rem">
-    <span class="icon" style="font-size:2rem">⏳</span>
-    Chargement de l'article…
-  </div>
-</div>
-
-<!-- Comments -->
+<!-- Section commentaires -->
 <div class="comments-box" id="commentsBox" style="display:none">
+
   <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem">
-    <h3 style="margin:0" id="commentsTitle">Commentaires</h3>
-    <span class="comment-count-badge" id="comCount">0</span>
+    <h3 style="margin:0">Commentaires</h3>
+    <span id="comBadge" style="background:rgba(15,244,198,0.1);border:1px solid rgba(15,244,198,0.25);color:var(--teal);padding:0.2rem 0.7rem;border-radius:20px;font-size:0.78rem;font-weight:700"></span>
   </div>
 
   <!-- Formulaire -->
   <div class="comment-form-card">
     <h4>💬 Laisser un commentaire</h4>
     <div id="alertSuccess" class="alert alert-success" style="display:none">
-      ✅ Commentaire publié ! Il est maintenant visible.
-    </div>
-    <div id="alertError" class="alert alert-error" style="display:none">
-      ❌ Erreur lors de la publication. Réessayez.
+      ✅ Commentaire publié !
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -77,14 +60,12 @@
     </div>
     <div class="form-group">
       <label>Commentaire *</label>
-      <textarea id="contenu" rows="4" placeholder="Partagez votre avis sur cet article..."></textarea>
+      <textarea id="contenu" rows="4" placeholder="Partagez votre avis..."></textarea>
     </div>
-    <button class="btn-submit-com" id="btnSubmit" onclick="soumettre()">
-      Publier mon commentaire →
-    </button>
+    <button class="btn-submit-com" onclick="soumettre()">Publier mon commentaire →</button>
   </div>
 
-  <!-- Liste commentaires -->
+  <!-- Liste -->
   <div id="commentsList"></div>
 </div>
 
@@ -92,32 +73,30 @@
   <p>&copy; 2025 <strong>MinimalBlog</strong> — Projet BD ESISA · Pr. FENNANE SALMA</p>
 </footer>
 
-<script src="js/api.js"></script>
+<script src="js/db.js"></script>
 <script>
+  DB.init();
+
   const params    = new URLSearchParams(window.location.search);
   const articleId = params.get('id');
   if (!articleId) window.location.href = 'index.html';
 
-  // ---- Chargement de l'article ----
-  (async function() {
-    const article = await DB.getArticleById(articleId);
+  const article = DB.getArticleById(articleId);
 
-    if (!article || article.statut !== 'publie') {
-      document.getElementById('articleBody').innerHTML = `
-        <div class="empty-state" style="padding:6rem 2rem">
-          <span class="icon">😕</span>
-          Article introuvable ou non publié.
-          <br><br>
-          <a href="index.html" class="btn btn-primary mt-1">← Retour à l'accueil</a>
-        </div>`;
-      return;
-    }
-
+  if (!article || article.statut !== 'publie') {
+    document.getElementById('articleBody').innerHTML = `
+      <div class="empty-state" style="padding:6rem 2rem">
+        <span class="icon">😕</span>
+        Article introuvable ou non publié.
+        <br><br>
+        <a href="index.html" class="btn btn-primary mt-1">← Retour à l'accueil</a>
+      </div>`;
+  } else {
     document.title = `MinimalBlog — ${article.titre}`;
-    const cat  = await DB.getCategorieById(article.categorie_id);
-    const coms = await DB.getCommentaires(article.id, true);
+    const cat  = DB.getCategorieById(article.categorie_id);
+    const coms = DB.getCommentaires(article.id, true);
 
-    // Hero image
+    // Hero
     document.getElementById('articleHero').innerHTML = `
       <div class="article-hero">
         ${article.image_principale
@@ -127,7 +106,7 @@
         }
         <div class="article-hero-content" style="padding:3rem 2rem">
           ${cat ? `<span style="display:inline-block;background:rgba(15,244,198,0.15);border:1px solid rgba(15,244,198,0.3);color:var(--teal);font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:0.3rem 0.9rem;border-radius:20px;margin-bottom:1rem">${cat.icon} ${escapeHtml(cat.nom)}</span>` : ''}
-          <h1 style="font-family:'Fraunces',serif;font-size:clamp(1.8rem,4vw,3rem);font-weight:700;line-height:1.2;margin-bottom:1rem;color:white;max-width:800px;margin:0 auto 1rem">${escapeHtml(article.titre)}</h1>
+          <h1 style="font-family:'Fraunces',serif;font-size:clamp(1.8rem,4vw,3rem);font-weight:700;line-height:1.2;color:white;max-width:800px;margin:0 auto 1rem">${escapeHtml(article.titre)}</h1>
         </div>
       </div>
     `;
@@ -153,34 +132,31 @@
       </div>
     `;
 
-    // Afficher la section commentaires
+    // Commentaires
     document.getElementById('commentsBox').style.display = 'block';
-    await afficherCommentaires();
-  })();
+    afficherCommentaires();
+  }
 
-  // ---- Afficher les commentaires ----
-  async function afficherCommentaires() {
-    const coms = await DB.getCommentaires(articleId, true);
+  function afficherCommentaires() {
+    const coms = DB.getCommentaires(articleId, true);
     const div  = document.getElementById('commentsList');
 
-    // Mettre à jour les compteurs
-    const badge = document.getElementById('comCount');
+    // Compteurs
+    const badge = document.getElementById('comBadge');
     if (badge) badge.textContent = `${coms.length} commentaire${coms.length !== 1 ? 's' : ''}`;
-    document.getElementById('commentsTitle').textContent = `Commentaires`;
-
-    const metaCount = document.getElementById('metaComCount');
-    if (metaCount) metaCount.textContent = coms.length;
+    const meta = document.getElementById('metaComCount');
+    if (meta) meta.textContent = coms.length;
 
     if (coms.length === 0) {
       div.innerHTML = `<div class="empty-state" style="padding:2rem">
         <span class="icon">💬</span>
-        Aucun commentaire encore. Soyez le premier à réagir !
+        Aucun commentaire encore. Soyez le premier !
       </div>`;
       return;
     }
 
     div.innerHTML = coms.map((c, i) => `
-      <div class="comment-card" style="animation-delay:${i * 0.06}s">
+      <div class="comment-card" style="animation-delay:${i * 0.05}s">
         <div class="comment-head">
           <div class="comment-avatar">${initials(c.pseudo)}</div>
           <span class="comment-name">${escapeHtml(c.pseudo)}</span>
@@ -191,52 +167,27 @@
     `).join('');
   }
 
-  // ---- Soumettre un commentaire ----
-  async function soumettre() {
+  function soumettre() {
     const pseudo  = document.getElementById('pseudo').value.trim();
     const email   = document.getElementById('email').value.trim();
     const contenu = document.getElementById('contenu').value.trim();
-    const btn     = document.getElementById('btnSubmit');
-    const alertOk = document.getElementById('alertSuccess');
-    const alertErr= document.getElementById('alertError');
-
-    alertOk.style.display = 'none';
-    alertErr.style.display = 'none';
 
     if (!pseudo)  { alert('Le pseudo est obligatoire.'); return; }
     if (!contenu) { alert('Le commentaire est vide.');   return; }
 
-    btn.disabled = true;
-    btn.textContent = 'Publication…';
+    DB.addCommentaire({ article_id: parseInt(articleId), pseudo, email, contenu });
 
-    try {
-      await DB.addCommentaire({ article_id: parseInt(articleId), pseudo, email, contenu });
+    document.getElementById('pseudo').value  = '';
+    document.getElementById('email').value   = '';
+    document.getElementById('contenu').value = '';
 
-      // Vider le formulaire
-      document.getElementById('pseudo').value  = '';
-      document.getElementById('email').value   = '';
-      document.getElementById('contenu').value = '';
+    const alertOk = document.getElementById('alertSuccess');
+    alertOk.style.display = 'block';
+    setTimeout(() => { alertOk.style.display = 'none'; }, 4000);
 
-      // Confirmation
-      alertOk.style.display = 'block';
-      setTimeout(() => { alertOk.style.display = 'none'; }, 5000);
-
-      // Rafraîchir la liste immédiatement
-      await afficherCommentaires();
-    } catch(e) {
-      alertErr.style.display = 'block';
-      alertErr.textContent = '❌ ' + (e.message || 'Erreur lors de la publication.');
-      setTimeout(() => { alertErr.style.display = 'none'; }, 5000);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Publier mon commentaire →';
-    }
+    // Rafraîchir la liste immédiatement
+    afficherCommentaires();
   }
-
-  // Entrée = soumettre
-  document.addEventListener('keydown', e => {
-    if (e.ctrlKey && e.key === 'Enter') soumettre();
-  });
 </script>
 </body>
 </html>

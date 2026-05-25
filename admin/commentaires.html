@@ -64,111 +64,68 @@
   </div>
 </div>
 
-<script src="../js/api.js"></script>
+<script src="../js/db.js"></script>
 <script>
+  DB.init();
+  if (!DB.isLoggedIn()) window.location.href = 'login.html';
+
   let filtre = 'pending';
-  let articlesCache = {};
 
-  // Auth + init
-  (async function() {
-    const { isAdmin } = await fetch('/api/auth/check').then(r => r.json()).catch(() => ({ isAdmin: false }));
-    if (!isAdmin) { sessionStorage.removeItem('mb2_logged'); window.location.href = 'login.html'; return; }
-    sessionStorage.setItem('mb2_logged', 'true');
-    await filtrer('pending');
-  })();
-
-  async function filtrer(f) {
+  function filtrer(f) {
     filtre = f;
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(f === 'pending' ? 't1' : f === 'approved' ? 't2' : 't3').classList.add('active');
-    await charger();
+    document.getElementById(f==='pending'?'t1':f==='approved'?'t2':'t3').classList.add('active');
+    charger();
   }
 
-  async function charger() {
-    const tbody = document.getElementById('tbody');
-    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Chargement…</td></tr>';
-
-    // Commentaires filtrés
+  function charger() {
     let coms;
-    if (filtre === 'pending')  coms = await DB.getCommentaires(null, false);
-    else if (filtre === 'approved') coms = await DB.getCommentaires(null, true);
-    else coms = await DB.getCommentaires();
+    if (filtre==='pending')       coms = DB.getCommentaires(null, false);
+    else if (filtre==='approved') coms = DB.getCommentaires(null, true);
+    else                          coms = DB.getCommentaires();
 
-    // Badge en attente
-    const pending = (filtre !== 'pending') ? await DB.getCommentaires(null, false) : coms;
-    const nbPending = (filtre !== 'pending') ? pending.length : coms.length;
-    const badge = document.getElementById('pendingBadge');
-    const pendingCount = filtre === 'pending' ? coms.length :
-      (await DB.getCommentaires(null, false)).length;
-    badge.textContent   = pendingCount > 0 ? `${pendingCount} en attente` : '✓ À jour';
-    badge.style.background = pendingCount > 0 ? 'rgba(245,166,35,0.15)' : 'rgba(0,212,168,0.12)';
-    badge.style.color      = pendingCount > 0 ? 'var(--gold)' : 'var(--teal)';
-    badge.style.border     = `1px solid ${pendingCount > 0 ? 'rgba(245,166,35,0.3)' : 'rgba(0,212,168,0.3)'}`;
+    const pending = DB.getCommentaires(null, false).length;
+    const badge   = document.getElementById('pendingBadge');
+    badge.textContent  = pending > 0 ? `${pending} en attente` : '✓ À jour';
+    badge.style.background = pending>0?'rgba(245,166,35,0.15)':'rgba(0,212,168,0.12)';
+    badge.style.color      = pending>0?'var(--gold)':'var(--teal)';
+    badge.style.border     = `1px solid ${pending>0?'rgba(245,166,35,0.3)':'rgba(0,212,168,0.3)'}`;
 
-    if (!coms.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Aucun commentaire.</td></tr>';
-      return;
-    }
-
-    // Charger les articles manquants
-    const artIds = [...new Set(coms.map(c => c.article_id))];
-    await Promise.all(artIds.map(async id => {
-      if (!articlesCache[id]) {
-        articlesCache[id] = await DB.getArticleById(id);
-      }
-    }));
+    const tbody = document.getElementById('tbody');
+    if (!coms.length) { tbody.innerHTML='<tr><td colspan="8" class="empty-state">Aucun commentaire.</td></tr>'; return; }
 
     tbody.innerHTML = coms.map(c => {
-      const art = articlesCache[c.article_id];
+      const art = DB.getArticleById(c.article_id);
       return `
         <tr>
           <td style="color:var(--gris);font-weight:600">${c.id}</td>
           <td style="max-width:140px;font-size:0.82rem">
-            ${art
-              ? `<a href="../article.html?id=${art.id}" target="_blank" style="color:var(--teal)">${escapeHtml(art.titre.substring(0, 38))}…</a>`
-              : '—'
-            }
+            ${art?`<a href="../article.html?id=${art.id}" target="_blank" style="color:var(--teal)">${escapeHtml(art.titre.substring(0,38))}…</a>`:'—'}
           </td>
-          <td>
-            <div style="display:flex;align-items:center;gap:0.5rem">
-              <div class="author-avatar" style="width:26px;height:26px;font-size:0.65rem">${initials(c.pseudo)}</div>
-              <span style="font-weight:600;font-size:0.85rem">${escapeHtml(c.pseudo)}</span>
-            </div>
-          </td>
-          <td style="font-size:0.8rem;color:var(--gris)">${escapeHtml(c.email || '—')}</td>
-          <td style="max-width:200px;font-size:0.85rem;color:var(--blanc2)">
-            ${escapeHtml(c.contenu.substring(0, 80))}${c.contenu.length > 80 ? '…' : ''}
-          </td>
+          <td><div style="display:flex;align-items:center;gap:0.5rem">
+            <div class="author-avatar" style="width:26px;height:26px;font-size:0.65rem">${initials(c.pseudo)}</div>
+            <span style="font-weight:600;font-size:0.85rem">${escapeHtml(c.pseudo)}</span>
+          </div></td>
+          <td style="font-size:0.8rem;color:var(--gris)">${escapeHtml(c.email||'—')}</td>
+          <td style="max-width:200px;font-size:0.85rem;color:var(--blanc2)">${escapeHtml(c.contenu.substring(0,80))}${c.contenu.length>80?'…':''}</td>
           <td style="font-size:0.8rem;color:var(--gris)">${formatDateShort(c.date_commentaire)}</td>
-          <td><span class="badge badge-${c.approuve ? 'approved' : 'pending'}">${c.approuve ? '✅ Approuvé' : '⏳ En attente'}</span></td>
-          <td>
-            <div class="actions">
-              ${!c.approuve ? `<button class="btn btn-success btn-sm" onclick="approuver(${c.id})">✓</button>` : ''}
-              <button class="btn btn-danger btn-sm" onclick="supprimer(${c.id})">🗑</button>
-            </div>
-          </td>
-        </tr>
-      `;
+          <td><span class="badge badge-${c.approuve?'approved':'pending'}">${c.approuve?'✅ Approuvé':'⏳ En attente'}</span></td>
+          <td><div class="actions">
+            ${!c.approuve?`<button class="btn btn-success btn-sm" onclick="approuver(${c.id})">✓</button>`:''}
+            <button class="btn btn-danger btn-sm" onclick="supprimer(${c.id})">🗑</button>
+          </div></td>
+        </tr>`;
     }).join('');
   }
 
-  async function approuver(id) {
-    await DB.approuverCommentaire(id);
-    showNotification('✅ Commentaire approuvé !');
-    await charger();
-  }
+  filtrer('pending');
 
-  async function supprimer(id) {
-    if (!confirm('Supprimer ce commentaire définitivement ?')) return;
-    await DB.supprimerCommentaire(id);
-    showNotification('Commentaire supprimé.', 'error');
-    await charger();
+  function approuver(id) { DB.approuverCommentaire(id); showNotification('✅ Commentaire approuvé !'); charger(); }
+  function supprimer(id) {
+    if (!confirm('Supprimer ce commentaire ?')) return;
+    DB.supprimerCommentaire(id); showNotification('Supprimé.','error'); charger();
   }
-
-  async function doLogout() {
-    await DB.logout();
-    window.location.href = 'login.html';
-  }
+  function doLogout() { DB.logout(); window.location.href='login.html'; }
 </script>
 </body>
 </html>

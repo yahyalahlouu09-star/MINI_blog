@@ -128,121 +128,72 @@
   </div>
 </div>
 
-<script src="../js/api.js"></script>
+<script src="../js/db.js"></script>
 <script>
-  let catsCache = [];
+  DB.init();
+  if (!DB.isLoggedIn()) window.location.href = 'login.html';
 
-  // Auth + init
-  (async function() {
-    const { isAdmin } = await fetch('/api/auth/check').then(r => r.json()).catch(() => ({ isAdmin: false }));
-    if (!isAdmin) { sessionStorage.removeItem('mb2_logged'); window.location.href = 'login.html'; return; }
-    sessionStorage.setItem('mb2_logged', 'true');
+  DB.getCategories().forEach(c => {
+    document.getElementById('filtCat').innerHTML += `<option value="${c.id}">${c.icon} ${escapeHtml(c.nom)}</option>`;
+    document.getElementById('fCat').innerHTML    += `<option value="${c.id}">${escapeHtml(c.nom)}</option>`;
+  });
 
-    // Charger catégories
-    catsCache = await DB.getCategories();
-    const filtCat = document.getElementById('filtCat');
-    const fCat    = document.getElementById('fCat');
-    catsCache.forEach(c => {
-      filtCat.innerHTML += `<option value="${c.id}">${c.icon} ${escapeHtml(c.nom)}</option>`;
-      fCat.innerHTML    += `<option value="${c.id}">${escapeHtml(c.nom)}</option>`;
-    });
-
-    await charger();
-  })();
-
-  function previewImage(url) {
+  document.getElementById('fImage').addEventListener('input', function() {
     const preview = document.getElementById('imgPreview');
-    const img     = document.getElementById('imgPreviewEl');
-    if (url) {
-      preview.style.display = 'block';
-      img.src = url;
-      img.onerror = () => { preview.style.display = 'none'; };
-    } else {
-      preview.style.display = 'none';
-    }
-  }
+    const img = document.getElementById('imgPreviewEl');
+    if (this.value) { preview.style.display='block'; img.src=this.value; img.onerror=()=>preview.style.display='none'; }
+    else preview.style.display='none';
+  });
 
-  let chargerTimeout;
   function charger() {
-    clearTimeout(chargerTimeout);
-    chargerTimeout = setTimeout(_charger, 300);
-  }
-
-  async function _charger() {
     const statut = document.getElementById('filtStatut').value || null;
-    const catId  = document.getElementById('filtCat').value   || null;
+    const catId  = document.getElementById('filtCat').value || null;
     const search = document.getElementById('filtSearch').value.trim() || null;
-    const arts   = await DB.getArticles(statut, catId, search);
+    const arts   = DB.getArticles(statut, catId, search);
     const tbody  = document.getElementById('tbody');
 
-    if (!arts.length) {
-      tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Aucun article trouvé.</td></tr>';
-      return;
-    }
-
-    // Compter les commentaires en parallèle
-    const comsMap = {};
-    await Promise.all(arts.map(async a => {
-      const coms = await DB.getCommentaires(a.id);
-      comsMap[a.id] = coms.length;
-    }));
-
-    const catMap = {};
-    catsCache.forEach(c => { catMap[c.id] = c; });
+    if (!arts.length) { tbody.innerHTML='<tr><td colspan="9" class="empty-state">Aucun article trouvé.</td></tr>'; return; }
 
     tbody.innerHTML = arts.map(a => {
-      const cat = catMap[a.categorie_id];
+      const cat  = DB.getCategorieById(a.categorie_id);
+      const coms = DB.getCommentaires(a.id).length;
       return `
         <tr>
           <td style="color:var(--gris);font-weight:600">${a.id}</td>
-          <td>
-            <div style="width:48px;height:36px;border-radius:6px;overflow:hidden;background:var(--navy3)">
-              ${a.image_principale
-                ? `<img src="${escapeHtml(a.image_principale)}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='📷'">`
-                : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:1.2rem">📝</div>'
-              }
-            </div>
-          </td>
-          <td style="max-width:200px">
-            <div style="font-weight:600;color:var(--blanc);font-size:0.88rem">
-              ${escapeHtml(a.titre.substring(0, 50))}${a.titre.length > 50 ? '…' : ''}
-            </div>
-          </td>
-          <td>${cat ? `<span class="badge badge-cat">${cat.icon} ${escapeHtml(cat.nom)}</span>` : '—'}</td>
+          <td><div style="width:48px;height:36px;border-radius:6px;overflow:hidden;background:var(--navy3)">
+            ${a.image_principale?`<img src="${escapeHtml(a.image_principale)}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='📷'">`:
+            '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:1.2rem">📝</div>'}
+          </div></td>
+          <td style="max-width:200px"><div style="font-weight:600;color:var(--blanc);font-size:0.88rem">${escapeHtml(a.titre.substring(0,50))}${a.titre.length>50?'…':''}</div></td>
+          <td>${cat?`<span class="badge badge-cat">${cat.icon} ${escapeHtml(cat.nom)}</span>`:'—'}</td>
           <td style="font-size:0.85rem">${escapeHtml(a.auteur)}</td>
           <td style="font-size:0.82rem;color:var(--gris)">${formatDateShort(a.date_publication)}</td>
-          <td><span class="badge badge-${a.statut}">${a.statut === 'publie' ? '✅ Publié' : '✏️ Brouillon'}</span></td>
-          <td style="text-align:center;color:var(--gris)">${comsMap[a.id] || 0}</td>
-          <td>
-            <div class="actions">
-              <a href="../article.html?id=${a.id}" target="_blank" class="btn btn-secondary btn-sm">👁</a>
-              <button class="btn btn-success btn-sm" onclick="ouvrirEdit(${a.id})">✏️</button>
-              <button class="btn btn-danger btn-sm"  onclick="supprimer(${a.id})">🗑</button>
-            </div>
-          </td>
-        </tr>
-      `;
+          <td><span class="badge badge-${a.statut}">${a.statut==='publie'?'✅ Publié':'✏️ Brouillon'}</span></td>
+          <td style="text-align:center;color:var(--gris)">${coms}</td>
+          <td><div class="actions">
+            <a href="../article.html?id=${a.id}" target="_blank" class="btn btn-secondary btn-sm">👁</a>
+            <button class="btn btn-success btn-sm" onclick="ouvrirEdit(${a.id})">✏️</button>
+            <button class="btn btn-danger btn-sm"  onclick="supprimer(${a.id})">🗑</button>
+          </div></td>
+        </tr>`;
     }).join('');
   }
+  charger();
 
   function ouvrirAjout() {
     document.getElementById('modalTitle').textContent = 'Nouvel article';
-    document.getElementById('artId').value    = '';
-    document.getElementById('fTitre').value   = '';
-    document.getElementById('fAuteur').value  = '';
-    document.getElementById('fContenu').value = '';
-    document.getElementById('fImage').value   = '';
-    document.getElementById('fStatut').value  = 'brouillon';
+    document.getElementById('artId').value = '';
+    ['fTitre','fAuteur','fContenu','fImage'].forEach(id => document.getElementById(id).value='');
+    document.getElementById('fAuteur').value = '';
+    document.getElementById('fStatut').value = 'brouillon';
     document.getElementById('fCat').selectedIndex = 0;
     document.getElementById('imgPreview').style.display = 'none';
     document.getElementById('overlay').classList.add('open');
-    document.getElementById('fTitre').focus();
   }
 
-  async function ouvrirEdit(id) {
-    const a = await DB.getArticleById(id);
-    if (!a) return;
-    document.getElementById('modalTitle').textContent = 'Modifier l\'article';
+  function ouvrirEdit(id) {
+    const a = DB.getArticleById(id); if (!a) return;
+    document.getElementById('modalTitle').textContent = "Modifier l'article";
     document.getElementById('artId').value    = a.id;
     document.getElementById('fTitre').value   = a.titre;
     document.getElementById('fAuteur').value  = a.auteur;
@@ -250,17 +201,15 @@
     document.getElementById('fImage').value   = a.image_principale || '';
     document.getElementById('fStatut').value  = a.statut;
     document.getElementById('fCat').value     = a.categorie_id;
-    previewImage(a.image_principale);
+    if (a.image_principale) { document.getElementById('imgPreview').style.display='block'; document.getElementById('imgPreviewEl').src=a.image_principale; }
+    else document.getElementById('imgPreview').style.display='none';
     document.getElementById('overlay').classList.add('open');
-    document.getElementById('fTitre').focus();
   }
 
   function fermer() { document.getElementById('overlay').classList.remove('open'); }
-  document.getElementById('overlay').addEventListener('click', e => {
-    if (e.target === document.getElementById('overlay')) fermer();
-  });
+  document.getElementById('overlay').addEventListener('click', e => { if(e.target===document.getElementById('overlay')) fermer(); });
 
-  async function sauvegarder() {
+  function sauvegarder() {
     const id      = document.getElementById('artId').value;
     const titre   = document.getElementById('fTitre').value.trim();
     const auteur  = document.getElementById('fAuteur').value.trim();
@@ -268,53 +217,28 @@
     const catId   = parseInt(document.getElementById('fCat').value);
     const statut  = document.getElementById('fStatut').value;
     const image   = document.getElementById('fImage').value.trim();
-    const btn     = document.getElementById('btnSave');
 
     if (!titre)   { alert('Titre obligatoire.'); return; }
     if (!auteur)  { alert('Auteur obligatoire.'); return; }
     if (!contenu) { alert('Contenu obligatoire.'); return; }
 
-    btn.disabled = true;
-    btn.textContent = '⏳ Sauvegarde…';
-
-    try {
-      const data = { titre, auteur, contenu, categorie_id: catId, statut, image_principale: image };
-      if (id) {
-        await DB.updateArticle(parseInt(id), data);
-        showNotification('✅ Article modifié !');
-      } else {
-        await DB.addArticle(data);
-        showNotification('✅ Article créé !');
-      }
-      fermer();
-      await charger();
-    } catch(e) {
-      showNotification('❌ ' + e.message, 'error');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '💾 Sauvegarder';
-    }
+    const data = { titre, auteur, contenu, categorie_id: catId, statut, image_principale: image };
+    if (id) { DB.updateArticle(parseInt(id), data); showNotification('Article modifié !'); }
+    else    { DB.addArticle(data); showNotification('Article créé !'); }
+    fermer(); charger();
   }
 
-  async function supprimer(id) {
-    const a = await DB.getArticleById(id);
+  function supprimer(id) {
+    const a = DB.getArticleById(id);
     if (!confirm(`Supprimer "${a.titre}" et ses commentaires ?`)) return;
-    await DB.deleteArticle(id);
-    showNotification('Article supprimé.', 'error');
-    await charger();
+    DB.deleteArticle(id); showNotification('Article supprimé.','error'); charger();
   }
 
-  async function doLogout() {
-    await DB.logout();
-    window.location.href = 'login.html';
-  }
+  function doLogout() { DB.logout(); window.location.href='login.html'; }
 
-  // Ctrl+Entrée dans la modal = sauvegarder
   document.addEventListener('keydown', e => {
-    if (e.ctrlKey && e.key === 'Enter' && document.getElementById('overlay').classList.contains('open')) {
-      sauvegarder();
-    }
-    if (e.key === 'Escape') fermer();
+    if (e.ctrlKey && e.key==='Enter' && document.getElementById('overlay').classList.contains('open')) sauvegarder();
+    if (e.key==='Escape') fermer();
   });
 </script>
 </body>

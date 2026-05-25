@@ -17,6 +17,16 @@
     .card:nth-child(4){animation-delay:0.2s}
     .card:nth-child(5){animation-delay:0.25s}
     .card:nth-child(6){animation-delay:0.3s}
+
+    /* Bouton écrire */
+    .btn-write {
+      display:inline-flex;align-items:center;gap:0.4rem;
+      background:rgba(15,244,198,0.12);border:1px solid rgba(15,244,198,0.35);
+      color:var(--teal);padding:0.45rem 1.1rem;border-radius:8px;
+      font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;
+      cursor:pointer;transition:all 0.2s;
+    }
+    .btn-write:hover { background:var(--teal);color:var(--navy); }
   </style>
 </head>
 <body>
@@ -27,6 +37,7 @@
   <nav>
     <a href="index.html">Accueil</a>
     <a href="index.html#articles">Articles</a>
+    <button class="btn-write" onclick="ouvrirFormArticle()">✏️ Écrire un article</button>
     <a href="admin/login.html" class="btn-admin">⚡ Admin</a>
   </nav>
 </header>
@@ -35,7 +46,7 @@
 <section class="hero">
   <div class="hero-bg"></div>
   <div class="hero-content">
-    <div class="hero-eyebrow">Blog en direct</div>
+    <div class="hero-eyebrow">Blog actif</div>
     <h1>Des idées qui <em>illuminent</em> le monde</h1>
     <p>Articles sur la technologie, les voyages, la science et la culture — écrits avec passion et précision.</p>
     <div class="search-wrap">
@@ -62,9 +73,7 @@
   </div>
 
   <!-- Grille articles -->
-  <div class="articles-grid" id="articlesGrid">
-    <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--gris)">Chargement…</div>
-  </div>
+  <div class="articles-grid" id="articlesGrid"></div>
 
   <!-- Pagination -->
   <div class="pagination" id="pagination"></div>
@@ -75,42 +84,85 @@
   <p>&copy; 2025 <strong>MinimalBlog</strong> — Projet BD ESISA · Pr. FENNANE SALMA</p>
 </footer>
 
-<script src="js/api.js"></script>
+<!-- ===== MODAL : ÉCRIRE UN ARTICLE ===== -->
+<div class="modal-overlay" id="articleOverlay">
+  <div class="modal" style="max-height:90vh;overflow-y:auto">
+    <div class="modal-header">
+      <h3>✏️ Publier un article</h3>
+      <button class="btn-close" onclick="fermerFormArticle()">✕</button>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Catégorie *</label>
+        <select id="wCat" style="width:100%;padding:0.65rem 1rem;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;color:var(--blanc);font-family:'DM Sans',sans-serif;font-size:0.88rem">
+        </select>
+      </div>
+      <div class="form-group" style="display:flex;flex-direction:column;gap:0.5rem">
+        <label>Auteur *</label>
+        <input type="text" id="wAuteur" placeholder="Votre nom">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Titre de l'article *</label>
+      <input type="text" id="wTitre" placeholder="Un titre accrocheur...">
+    </div>
+
+    <div class="form-group">
+      <label>Image (URL) <span style="color:var(--gris);font-weight:400">(optionnel)</span></label>
+      <input type="text" id="wImage" placeholder="https://images.unsplash.com/photo-…"
+        oninput="previewWImage(this.value)">
+      <div id="wImgPreview" style="margin-top:0.5rem;height:100px;border-radius:8px;overflow:hidden;display:none;background:var(--navy3)">
+        <img id="wImgPreviewEl" style="width:100%;height:100%;object-fit:cover">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Contenu * <span style="color:var(--gris);font-weight:400;font-size:0.8rem">— séparez les paragraphes par une ligne vide</span></label>
+      <textarea id="wContenu" rows="10" placeholder="Écrivez votre article ici...&#10;&#10;Vous pouvez écrire plusieurs paragraphes en sautant une ligne."></textarea>
+    </div>
+
+    <div id="wError" class="alert alert-error" style="display:none"></div>
+
+    <div style="display:flex;gap:0.8rem;justify-content:flex-end;margin-top:1rem">
+      <button class="btn btn-secondary" onclick="fermerFormArticle()">Annuler</button>
+      <button class="btn btn-primary" id="wBtnPublier" onclick="publierArticle()">🚀 Publier</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/db.js"></script>
 <script>
+  DB.init();
+
   let pageActuelle = 1;
   const PAR_PAGE = 6;
   let categorieActive = null;
   let rechercheActive = '';
-  let featuredId = null;
 
-  // ---- Initialisation principale ----
-  (async function() {
-    // Charger les catégories
-    const cats = await DB.getCategories();
+  // ---- Charger catégories ----
+  (function() {
     const filter = document.getElementById('catsFilter');
-    cats.forEach(cat => {
+    const wCat   = document.getElementById('wCat');
+    DB.getCategories().forEach(cat => {
+      // Filtre
       const btn = document.createElement('button');
       btn.className = 'cat-pill';
       btn.textContent = `${cat.icon} ${cat.nom}`;
       btn.onclick = function() { filtrerCategorie(cat.id, this); };
       filter.appendChild(btn);
+      // Select modal
+      wCat.innerHTML += `<option value="${cat.id}">${cat.icon} ${escapeHtml(cat.nom)}</option>`;
     });
-
-    // Charger l'article à la une
-    await afficherFeatured();
-
-    // Charger la grille
-    await afficherArticles();
   })();
 
   // ---- Article à la une ----
-  async function afficherFeatured() {
-    const featured = await DB.getFeatured();
+  (function() {
+    const featured = DB.getFeatured();
     if (!featured) return;
-    featuredId = featured.id;
-
-    const cat  = await DB.getCategorieById(featured.categorie_id);
-    const coms = await DB.getCommentaires(featured.id, true);
+    const cat  = DB.getCategorieById(featured.categorie_id);
+    const coms = DB.getCommentaires(featured.id, true);
 
     document.getElementById('featuredSection').innerHTML = `
       <div style="margin-top:2.5rem">
@@ -136,43 +188,38 @@
         </div>
       </div>
     `;
-  }
+  })();
 
-  // ---- Filtrer par catégorie ----
-  async function filtrerCategorie(id, btn) {
-    categorieActive = id;
-    pageActuelle = 1;
+  // ---- Filtrer ----
+  function filtrerCategorie(id, btn) {
+    categorieActive = id; pageActuelle = 1;
     document.querySelectorAll('.cat-pill').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    await afficherArticles();
+    afficherArticles();
   }
 
-  // ---- Recherche ----
-  async function rechercherArticles() {
+  function rechercherArticles() {
     rechercheActive = document.getElementById('searchInput').value.trim();
     pageActuelle = 1;
-    await afficherArticles();
+    afficherArticles();
   }
-  document.getElementById('searchInput').addEventListener('keyup', async e => {
-    if (e.key === 'Enter') await rechercherArticles();
-    if (!e.target.value) { rechercheActive = ''; await afficherArticles(); }
+  document.getElementById('searchInput').addEventListener('keyup', e => {
+    if (e.key === 'Enter') rechercherArticles();
+    if (!e.target.value) { rechercheActive = ''; afficherArticles(); }
   });
 
-  // ---- Afficher la grille ----
-  async function afficherArticles() {
-    const grid = document.getElementById('articlesGrid');
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--gris)">Chargement…</div>';
-
-    let arts = await DB.getArticles('publie', categorieActive, rechercheActive || null);
-
-    // Exclure le featured de la grille principale (sauf si filtre actif)
-    if (featuredId && !categorieActive && !rechercheActive) {
-      arts = arts.filter(a => a.id !== featuredId);
+  // ---- Afficher articles ----
+  function afficherArticles() {
+    let arts = DB.getArticles('publie', categorieActive, rechercheActive || null);
+    const featured = DB.getFeatured();
+    if (featured && !categorieActive && !rechercheActive) {
+      arts = arts.filter(a => a.id !== featured.id);
     }
 
     const total      = arts.length;
     const totalPages = Math.ceil(total / PAR_PAGE);
     const page       = arts.slice((pageActuelle - 1) * PAR_PAGE, pageActuelle * PAR_PAGE);
+    const grid       = document.getElementById('articlesGrid');
 
     if (page.length === 0) {
       grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
@@ -183,23 +230,11 @@
       return;
     }
 
-    // Charger catégories en une fois
-    const allCats = await DB.getCategories();
-    const catMap  = {};
-    allCats.forEach(c => { catMap[c.id] = c; });
-
-    // Charger le nombre de commentaires par article
-    const comsCountMap = {};
-    await Promise.all(page.map(async a => {
-      const coms = await DB.getCommentaires(a.id, true);
-      comsCountMap[a.id] = coms.length;
-    }));
-
     grid.innerHTML = page.map(a => {
-      const cat    = catMap[a.categorie_id];
+      const cat    = DB.getCategorieById(a.categorie_id);
+      const coms   = DB.getCommentaires(a.id, true);
       const extrait = a.contenu.replace(/\n/g, ' ').substring(0, 130) + '…';
       const initls = initials(a.auteur);
-      const nbComs = comsCountMap[a.id] || 0;
       return `
         <div class="card" onclick="window.location='article.html?id=${a.id}'">
           <div class="card-thumb">
@@ -222,7 +257,7 @@
                 </div>
               </div>
               <span class="read-link" style="display:flex;align-items:center;gap:0.4rem">
-                💬 ${nbComs} <span>→</span>
+                💬 ${coms.length} <span>→</span>
               </span>
             </div>
           </div>
@@ -243,11 +278,84 @@
     div.innerHTML = html;
   }
 
-  async function changerPage(n) {
+  function changerPage(n) {
     pageActuelle = n;
-    await afficherArticles();
+    afficherArticles();
     window.scrollTo({ top: document.getElementById('articles').offsetTop - 80, behavior: 'smooth' });
   }
+
+  afficherArticles();
+
+  // ===== FORMULAIRE PUBLICATION ARTICLE =====
+  function ouvrirFormArticle() {
+    document.getElementById('articleOverlay').classList.add('open');
+    document.getElementById('wTitre').focus();
+  }
+
+  function fermerFormArticle() {
+    document.getElementById('articleOverlay').classList.remove('open');
+    document.getElementById('wError').style.display = 'none';
+  }
+
+  function previewWImage(url) {
+    const preview = document.getElementById('wImgPreview');
+    const img     = document.getElementById('wImgPreviewEl');
+    if (url) {
+      preview.style.display = 'block';
+      img.src = url;
+      img.onerror = () => { preview.style.display = 'none'; };
+    } else {
+      preview.style.display = 'none';
+    }
+  }
+
+  function publierArticle() {
+    const titre   = document.getElementById('wTitre').value.trim();
+    const auteur  = document.getElementById('wAuteur').value.trim();
+    const contenu = document.getElementById('wContenu').value.trim();
+    const catId   = parseInt(document.getElementById('wCat').value);
+    const image   = document.getElementById('wImage').value.trim();
+    const errDiv  = document.getElementById('wError');
+    const btn     = document.getElementById('wBtnPublier');
+
+    errDiv.style.display = 'none';
+
+    if (!titre)   { errDiv.textContent = '❌ Le titre est obligatoire.';   errDiv.style.display='block'; return; }
+    if (!auteur)  { errDiv.textContent = '❌ Le nom de l\'auteur est obligatoire.'; errDiv.style.display='block'; return; }
+    if (!contenu) { errDiv.textContent = '❌ Le contenu est obligatoire.'; errDiv.style.display='block'; return; }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Publication…';
+
+    const id = DB.addArticle({
+      titre, auteur, contenu,
+      categorie_id: catId,
+      statut: 'publie',
+      image_principale: image
+    });
+
+    // Réinitialiser le formulaire
+    ['wTitre','wAuteur','wContenu','wImage'].forEach(fId => {
+      document.getElementById(fId).value = '';
+    });
+    document.getElementById('wImgPreview').style.display = 'none';
+    btn.disabled = false;
+    btn.textContent = '🚀 Publier';
+
+    fermerFormArticle();
+    showNotification('✅ Article publié avec succès !');
+
+    // Aller lire l'article
+    setTimeout(() => { window.location.href = `article.html?id=${id}`; }, 800);
+  }
+
+  // Fermer modal avec Echap
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') fermerFormArticle();
+  });
+  document.getElementById('articleOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('articleOverlay')) fermerFormArticle();
+  });
 </script>
 </body>
 </html>

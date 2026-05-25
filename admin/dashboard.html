@@ -51,87 +51,59 @@
   </div>
 </div>
 
-<script src="../js/api.js"></script>
+<script src="../js/db.js"></script>
 <script>
-  // Auth check
-  (async function() {
-    const { isAdmin } = await fetch('/api/auth/check').then(r => r.json()).catch(() => ({ isAdmin: false }));
-    if (!isAdmin) { sessionStorage.removeItem('mb2_logged'); window.location.href = 'login.html'; return; }
-    sessionStorage.setItem('mb2_logged', 'true');
-    await chargerDashboard();
-  })();
+  DB.init();
+  if (!DB.isLoggedIn()) window.location.href = 'login.html';
 
-  async function chargerDashboard() {
-    const [allArts, allComs, cats] = await Promise.all([
-      DB.getArticles(),
-      DB.getCommentaires(),
-      DB.getCategories()
-    ]);
+  const allArts    = DB.getArticles();
+  const publies    = DB.getArticles('publie');
+  const brouillons = DB.getArticles('brouillon');
+  const allComs    = DB.getCommentaires();
+  const pending    = DB.getCommentaires(null, false);
 
-    const publies    = allArts.filter(a => a.statut === 'publie');
-    const brouillons = allArts.filter(a => a.statut === 'brouillon');
-    const pending    = allComs.filter(c => !c.approuve);
+  document.getElementById('statsGrid').innerHTML = [
+    { n: allArts.length,    l: 'Total articles',        i: '📝' },
+    { n: publies.length,    l: 'Publiés',               i: '✅' },
+    { n: brouillons.length, l: 'Brouillons',            i: '✏️' },
+    { n: allComs.length,    l: 'Commentaires total',    i: '💬' },
+    { n: pending.length,    l: 'En attente modération', i: '⏳' },
+    { n: DB.getCategories().length, l: 'Catégories',    i: '🏷️' }
+  ].map(s => `
+    <div class="stat-card">
+      <div class="stat-icon">${s.i}</div>
+      <div class="stat-number">${s.n}</div>
+      <div class="stat-label">${s.l}</div>
+    </div>
+  `).join('');
 
-    // Stats
-    document.getElementById('statsGrid').innerHTML = [
-      { n: allArts.length,    l: 'Total articles',        i: '📝' },
-      { n: publies.length,    l: 'Publiés',               i: '✅' },
-      { n: brouillons.length, l: 'Brouillons',            i: '✏️' },
-      { n: allComs.length,    l: 'Commentaires total',    i: '💬' },
-      { n: pending.length,    l: 'En attente modération', i: '⏳' },
-      { n: cats.length,       l: 'Catégories',            i: '🏷️' }
-    ].map(s => `
-      <div class="stat-card">
-        <div class="stat-icon">${s.i}</div>
-        <div class="stat-number">${s.n}</div>
-        <div class="stat-label">${s.l}</div>
+  document.getElementById('recentArts').innerHTML = allArts.slice(0, 5).map(a => `
+    <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:0.9rem 1.1rem;margin-bottom:0.7rem;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:0.88rem;font-weight:600;color:var(--blanc);margin-bottom:0.2rem">${escapeHtml(a.titre.substring(0,45))}${a.titre.length>45?'…':''}</div>
+        <div style="font-size:0.75rem;color:var(--gris)">${formatDateShort(a.date_publication)} · ${escapeHtml(a.auteur)}</div>
       </div>
-    `).join('');
+      <span class="badge badge-${a.statut}">${a.statut==='publie'?'Publié':'Brouillon'}</span>
+    </div>
+  `).join('') || '<div class="empty-state">Aucun article.</div>';
 
-    // Articles récents
-    document.getElementById('recentArts').innerHTML = allArts.slice(0, 5).map(a => `
-      <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:0.9rem 1.1rem;margin-bottom:0.7rem;display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div style="font-size:0.88rem;font-weight:600;color:var(--blanc);margin-bottom:0.2rem">
-            ${escapeHtml(a.titre.substring(0, 45))}${a.titre.length > 45 ? '…' : ''}
-          </div>
-          <div style="font-size:0.75rem;color:var(--gris)">${formatDateShort(a.date_publication)} · ${escapeHtml(a.auteur)}</div>
-        </div>
-        <span class="badge badge-${a.statut}">${a.statut === 'publie' ? 'Publié' : 'Brouillon'}</span>
+  document.getElementById('pendingComs').innerHTML = pending.slice(0,4).map(c => `
+    <div style="background:var(--card-bg);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:10px;padding:0.9rem 1.1rem;margin-bottom:0.7rem">
+      <div style="display:flex;justify-content:space-between;margin-bottom:0.4rem">
+        <span style="font-weight:600;font-size:0.85rem;color:var(--blanc)">👤 ${escapeHtml(c.pseudo)}</span>
+        <span style="font-size:0.75rem;color:var(--gris)">${formatDateShort(c.date_commentaire)}</span>
       </div>
-    `).join('') || '<div class="empty-state">Aucun article.</div>';
-
-    // Commentaires en attente
-    document.getElementById('pendingComs').innerHTML = pending.slice(0, 4).map(c => `
-      <div style="background:var(--card-bg);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:10px;padding:0.9rem 1.1rem;margin-bottom:0.7rem">
-        <div style="display:flex;justify-content:space-between;margin-bottom:0.4rem">
-          <span style="font-weight:600;font-size:0.85rem;color:var(--blanc)">👤 ${escapeHtml(c.pseudo)}</span>
-          <span style="font-size:0.75rem;color:var(--gris)">${formatDateShort(c.date_commentaire)}</span>
-        </div>
-        <div style="font-size:0.82rem;color:var(--gris);margin-bottom:0.6rem">${escapeHtml(c.contenu.substring(0, 80))}…</div>
-        <div style="display:flex;gap:0.5rem">
-          <button class="btn btn-success btn-sm" onclick="approuver(${c.id})">✓ Approuver</button>
-          <button class="btn btn-danger btn-sm"  onclick="supprimer(${c.id})">✗ Supprimer</button>
-        </div>
+      <div style="font-size:0.82rem;color:var(--gris);margin-bottom:0.6rem">${escapeHtml(c.contenu.substring(0,80))}…</div>
+      <div style="display:flex;gap:0.5rem">
+        <button class="btn btn-success btn-sm" onclick="approuver(${c.id})">✓ Approuver</button>
+        <button class="btn btn-danger btn-sm"  onclick="supprimer(${c.id})">✗ Supprimer</button>
       </div>
-    `).join('') || '<div class="empty-state" style="padding:1.5rem">🎉 Aucun commentaire en attente !</div>';
-  }
+    </div>
+  `).join('') || '<div class="empty-state" style="padding:1.5rem">🎉 Aucun commentaire en attente !</div>';
 
-  async function approuver(id) {
-    await DB.approuverCommentaire(id);
-    showNotification('✅ Commentaire approuvé !');
-    await chargerDashboard();
-  }
-  async function supprimer(id) {
-    if (!confirm('Supprimer ce commentaire ?')) return;
-    await DB.supprimerCommentaire(id);
-    showNotification('Supprimé.', 'error');
-    await chargerDashboard();
-  }
-  async function doLogout() {
-    await DB.logout();
-    window.location.href = 'login.html';
-  }
+  function approuver(id) { DB.approuverCommentaire(id); showNotification('Commentaire approuvé !'); location.reload(); }
+  function supprimer(id) { if(confirm('Supprimer ?')) { DB.supprimerCommentaire(id); showNotification('Supprimé.','error'); location.reload(); } }
+  function doLogout() { DB.logout(); window.location.href = 'login.html'; }
 </script>
 </body>
 </html>

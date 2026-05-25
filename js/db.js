@@ -184,7 +184,7 @@ const DB = {
   addCommentaire(data) {
     const coms = JSON.parse(localStorage.getItem('mb2_commentaires')) || [];
     const id = coms.length ? Math.max(...coms.map(c => c.id)) + 1 : 1;
-    coms.push({ id, ...data, date_commentaire: new Date().toISOString(), approuve: false });
+    coms.push({ id, ...data, date_commentaire: new Date().toISOString(), approuve: true });
     localStorage.setItem('mb2_commentaires', JSON.stringify(coms));
     return id;
   },
