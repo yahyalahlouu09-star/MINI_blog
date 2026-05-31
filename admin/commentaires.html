@@ -6,60 +6,76 @@
   <title>Admin — Commentaires</title>
   <link rel="stylesheet" href="../css/style.css">
   <style>
-    .tab-btn { padding:0.65rem 1.4rem;border:none;background:transparent;color:var(--gris);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:500;transition:all 0.2s; }
-    .tab-btn.active { background:var(--teal);color:var(--navy);font-weight:700; }
+    /* Boutons d'onglets */
+    .onglet {
+      padding: 7px 16px;
+      border: 1px solid #ddd;
+      background: white;
+      color: #555;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: bold;
+      font-family: Arial, sans-serif;
+    }
+    .onglet:first-child { border-radius: 5px 0 0 5px; }
+    .onglet:last-child  { border-radius: 0 5px 5px 0; }
+    .onglet.actif { background: #3b82f6; color: white; border-color: #3b82f6; }
   </style>
 </head>
 <body>
+
 <div class="admin-layout">
-  <aside class="sidebar">
-    <div class="sidebar-logo" onclick="location.reload()" style="cursor:pointer" title="Rafraîchir">Minimal<span>Blog</span></div>
-    <div class="sidebar-section">Navigation</div>
-    <ul class="sidebar-nav">
-      <li><a href="dashboard.html">📊 Tableau de bord</a></li>
-      <li><a href="articles.html">📝 Articles</a></li>
-      <li><a href="commentaires.html" class="active">💬 Commentaires</a></li>
-    </ul>
-    <div class="sidebar-section" style="margin-top:1.5rem">Actions</div>
-    <ul class="sidebar-nav">
-      <li><a href="../index.html" target="_blank">🌐 Voir le blog</a></li>
-      <li><a href="#" onclick="doLogout()">🚪 Déconnexion</a></li>
-    </ul>
+
+  <!-- ======== MENU GAUCHE ======== -->
+  <aside class="admin-menu">
+    <a href="dashboard.html" class="logo-menu">Minimal<span>Blog</span></a>
+    <div class="section-titre">Navigation</div>
+    <a href="dashboard.html">📊 Tableau de bord</a>
+    <a href="articles.html">📝 Articles</a>
+    <a href="commentaires.html" class="actif">💬 Commentaires</a>
+    <div class="section-titre">Actions</div>
+    <a href="../index.html" target="_blank">🌐 Voir le blog</a>
+    <a href="#" onclick="deconnecter()">🚪 Déconnexion</a>
   </aside>
 
-  <div class="admin-main">
-    <div class="admin-topbar">
+  <!-- ======== CONTENU PRINCIPAL ======== -->
+  <div class="admin-corps">
+
+    <div class="admin-barre">
       <h2>Modération des Commentaires</h2>
-      <div id="pendingBadge" style="padding:0.35rem 1rem;border-radius:20px;font-size:0.82rem;font-weight:600"></div>
+      <!-- Indicateur de commentaires en attente -->
+      <div id="indicateur" style="padding:4px 14px; border-radius:20px; font-size:0.82rem; font-weight:bold;"></div>
     </div>
 
-    <div class="admin-content">
-      <!-- Onglets -->
-      <div style="display:flex;gap:0;margin-bottom:1.5rem;background:var(--card-bg);border:1px solid var(--border);border-radius:10px;overflow:hidden;width:fit-content">
-        <button class="tab-btn" id="t1" onclick="filtrer('pending')">⏳ En attente</button>
-        <button class="tab-btn" id="t2" onclick="filtrer('approved')">✅ Approuvés</button>
-        <button class="tab-btn" id="t3" onclick="filtrer('all')">📋 Tous</button>
+    <div class="admin-contenu">
+
+      <!-- Onglets de filtre -->
+      <div style="margin-bottom:18px;">
+        <button class="onglet" id="ong1" onclick="filtrer('attente')">⏳ En attente</button>
+        <button class="onglet" id="ong2" onclick="filtrer('approuves')">✅ Approuvés</button>
+        <button class="onglet" id="ong3" onclick="filtrer('tous')">📋 Tous</button>
       </div>
 
-      <div class="table-wrap">
-        <table class="data-table">
+      <!-- Tableau des commentaires -->
+      <div class="tableau-wrap">
+        <table class="tableau">
           <thead>
             <tr>
               <th>#</th>
               <th>Article</th>
               <th>Auteur</th>
-              <th>Email</th>
               <th>Commentaire</th>
               <th>Date</th>
               <th>Statut</th>
               <th>Actions</th>
             </tr>
           </thead>
-          <tbody id="tbody">
-            <tr><td colspan="8" class="empty-state">Chargement…</td></tr>
+          <tbody id="corps-tableau">
+            <tr><td colspan="7" class="vide">Chargement…</td></tr>
           </tbody>
         </table>
       </div>
+
     </div>
   </div>
 </div>
@@ -69,63 +85,93 @@
   DB.init();
   if (!DB.isLoggedIn()) window.location.href = 'login.html';
 
-  let filtre = 'pending';
+  var ongletActif = 'attente';
 
-  function filtrer(f) {
-    filtre = f;
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(f==='pending'?'t1':f==='approved'?'t2':'t3').classList.add('active');
-    charger();
+  // ============================================================
+  // CHANGER D'ONGLET
+  // ============================================================
+  function filtrer(onglet) {
+    ongletActif = onglet;
+
+    // Mettre à jour les onglets (actif / inactif)
+    document.getElementById('ong1').classList.toggle('actif', onglet === 'attente');
+    document.getElementById('ong2').classList.toggle('actif', onglet === 'approuves');
+    document.getElementById('ong3').classList.toggle('actif', onglet === 'tous');
+
+    chargerTableau();
   }
 
-  function charger() {
-    let coms;
-    if (filtre==='pending')       coms = DB.getCommentaires(null, false);
-    else if (filtre==='approved') coms = DB.getCommentaires(null, true);
-    else                          coms = DB.getCommentaires();
+  // ============================================================
+  // CHARGER LE TABLEAU
+  // ============================================================
+  function chargerTableau() {
+    var commentaires;
 
-    const pending = DB.getCommentaires(null, false).length;
-    const badge   = document.getElementById('pendingBadge');
-    badge.textContent  = pending > 0 ? `${pending} en attente` : '✓ À jour';
-    badge.style.background = pending>0?'rgba(245,166,35,0.15)':'rgba(0,212,168,0.12)';
-    badge.style.color      = pending>0?'var(--gold)':'var(--teal)';
-    badge.style.border     = `1px solid ${pending>0?'rgba(245,166,35,0.3)':'rgba(0,212,168,0.3)'}`;
+    if (ongletActif === 'attente')   commentaires = DB.getCommentaires(null, false);
+    else if (ongletActif === 'approuves') commentaires = DB.getCommentaires(null, true);
+    else                             commentaires = DB.getCommentaires();
 
-    const tbody = document.getElementById('tbody');
-    if (!coms.length) { tbody.innerHTML='<tr><td colspan="8" class="empty-state">Aucun commentaire.</td></tr>'; return; }
+    // Mettre à jour l'indicateur
+    var nbAttente = DB.getCommentaires(null, false).length;
+    var indic = document.getElementById('indicateur');
+    indic.textContent       = nbAttente > 0 ? nbAttente + ' en attente' : '✓ Tout à jour';
+    indic.style.background  = nbAttente > 0 ? '#fef3c7' : '#dcfce7';
+    indic.style.color       = nbAttente > 0 ? '#a16207' : '#16a34a';
+    indic.style.border      = '1px solid ' + (nbAttente > 0 ? '#fde68a' : '#86efac');
 
-    tbody.innerHTML = coms.map(c => {
-      const art = DB.getArticleById(c.article_id);
-      return `
-        <tr>
-          <td style="color:var(--gris);font-weight:600">${c.id}</td>
-          <td style="max-width:140px;font-size:0.82rem">
-            ${art?`<a href="../article.html?id=${art.id}" target="_blank" style="color:var(--teal)">${escapeHtml(art.titre.substring(0,38))}…</a>`:'—'}
-          </td>
-          <td><div style="display:flex;align-items:center;gap:0.5rem">
-            <div class="author-avatar" style="width:26px;height:26px;font-size:0.65rem">${initials(c.pseudo)}</div>
-            <span style="font-weight:600;font-size:0.85rem">${escapeHtml(c.pseudo)}</span>
-          </div></td>
-          <td style="font-size:0.8rem;color:var(--gris)">${escapeHtml(c.email||'—')}</td>
-          <td style="max-width:200px;font-size:0.85rem;color:var(--blanc2)">${escapeHtml(c.contenu.substring(0,80))}${c.contenu.length>80?'…':''}</td>
-          <td style="font-size:0.8rem;color:var(--gris)">${formatDateShort(c.date_commentaire)}</td>
-          <td><span class="badge badge-${c.approuve?'approved':'pending'}">${c.approuve?'✅ Approuvé':'⏳ En attente'}</span></td>
-          <td><div class="actions">
-            ${!c.approuve?`<button class="btn btn-success btn-sm" onclick="approuver(${c.id})">✓</button>`:''}
-            <button class="btn btn-danger btn-sm" onclick="supprimer(${c.id})">🗑</button>
-          </div></td>
-        </tr>`;
+    var corps = document.getElementById('corps-tableau');
+
+    if (commentaires.length === 0) {
+      corps.innerHTML = '<tr><td colspan="7" class="vide">Aucun commentaire.</td></tr>';
+      return;
+    }
+
+    corps.innerHTML = commentaires.map(function(c) {
+      var article = DB.getArticleById(c.article_id);
+
+      return '' +
+        '<tr>' +
+          '<td style="color:#888; font-weight:bold;">' + c.id + '</td>' +
+          '<td style="max-width:130px; font-size:0.82rem;">' +
+            (article
+              ? '<a href="../article.html?id=' + article.id + '" target="_blank" style="color:#3b82f6;">' + escapeHtml(article.titre.substring(0, 35)) + '…</a>'
+              : '—'
+            ) +
+          '</td>' +
+          '<td>' +
+            '<div style="display:flex; align-items:center; gap:6px;">' +
+              '<span class="initiales" style="width:24px;height:24px;font-size:0.6rem;display:inline-flex;">' + initials(c.pseudo) + '</span>' +
+              '<strong style="font-size:0.85rem;">' + escapeHtml(c.pseudo) + '</strong>' +
+            '</div>' +
+          '</td>' +
+          '<td style="max-width:200px; font-size:0.84rem; color:#444;">' + escapeHtml(c.contenu.substring(0, 80)) + (c.contenu.length > 80 ? '…' : '') + '</td>' +
+          '<td style="font-size:0.8rem; color:#888;">' + formatDateShort(c.date_commentaire) + '</td>' +
+          '<td>' +
+            '<span class="etiq ' + (c.approuve ? 'etiq-vert' : 'etiq-jaune') + '">' +
+              (c.approuve ? '✅ Approuvé' : '⏳ En attente') +
+            '</span>' +
+          '</td>' +
+          '<td>' +
+            '<div class="actions-groupe">' +
+              (!c.approuve ? '<button class="btn btn-vert btn-petit" onclick="approuver(' + c.id + ')">✓</button>' : '') +
+              '<button class="btn btn-rouge btn-petit" onclick="supprimer(' + c.id + ')">🗑</button>' +
+            '</div>' +
+          '</td>' +
+        '</tr>';
     }).join('');
   }
 
-  filtrer('pending');
+  // Démarrer sur l'onglet "En attente"
+  filtrer('attente');
 
-  function approuver(id) { DB.approuverCommentaire(id); showNotification('✅ Commentaire approuvé !'); charger(); }
+  function approuver(id) { DB.approuverCommentaire(id); showNotification('✅ Commentaire approuvé !'); chargerTableau(); }
   function supprimer(id) {
     if (!confirm('Supprimer ce commentaire ?')) return;
-    DB.supprimerCommentaire(id); showNotification('Supprimé.','error'); charger();
+    DB.supprimerCommentaire(id);
+    showNotification('Supprimé.', 'error');
+    chargerTableau();
   }
-  function doLogout() { DB.logout(); window.location.href='login.html'; }
+  function deconnecter() { DB.logout(); window.location.href = 'login.html'; }
 </script>
 </body>
 </html>

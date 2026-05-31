@@ -3,359 +3,354 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MinimalBlog — Accueil</title>
+  <title>MinimalBlog</title>
   <link rel="stylesheet" href="css/style.css">
-  <style>
-    @keyframes fadeInUp {
-      from { opacity:0; transform:translateY(24px); }
-      to   { opacity:1; transform:translateY(0); }
-    }
-    .card { animation: fadeInUp 0.5s ease both; }
-    .card:nth-child(1){animation-delay:0.05s}
-    .card:nth-child(2){animation-delay:0.1s}
-    .card:nth-child(3){animation-delay:0.15s}
-    .card:nth-child(4){animation-delay:0.2s}
-    .card:nth-child(5){animation-delay:0.25s}
-    .card:nth-child(6){animation-delay:0.3s}
-
-    /* Bouton écrire */
-    .btn-write {
-      display:inline-flex;align-items:center;gap:0.4rem;
-      background:rgba(15,244,198,0.12);border:1px solid rgba(15,244,198,0.35);
-      color:var(--teal);padding:0.45rem 1.1rem;border-radius:8px;
-      font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;
-      cursor:pointer;transition:all 0.2s;
-    }
-    .btn-write:hover { background:var(--teal);color:var(--navy); }
-  </style>
 </head>
 <body>
 
-<!-- HEADER -->
+<!-- ==================== HEADER ==================== -->
 <header>
-  <a href="index.html" class="logo" onclick="location.reload()">Minimal<span>Blog</span></a>
+  <a href="index.html" class="logo">Minimal<span>Blog</span></a>
   <nav>
     <a href="index.html">Accueil</a>
-    <a href="index.html#articles">Articles</a>
-    <button class="btn-write" onclick="ouvrirFormArticle()">✏️ Écrire un article</button>
+    <a href="#articles">Articles</a>
+    <button class="btn-ecrire" onclick="ouvrirModal()">✏️ Écrire</button>
     <a href="admin/login.html" class="btn-admin">⚡ Admin</a>
   </nav>
 </header>
 
-<!-- HERO -->
+<!-- ==================== HERO ==================== -->
 <section class="hero">
-  <div class="hero-bg"></div>
-  <div class="hero-content">
-    <div class="hero-eyebrow">Blog actif</div>
-    <h1>Des idées qui <em>illuminent</em> le monde</h1>
-    <p>Articles sur la technologie, les voyages, la science et la culture — écrits avec passion et précision.</p>
-    <div class="search-wrap">
-      <input type="text" id="searchInput" placeholder="Rechercher un article...">
-      <button onclick="rechercherArticles()">→</button>
-    </div>
+  <h1>Des idées qui illuminent le monde</h1>
+  <p>Articles sur la technologie, les voyages, la science et la culture.</p>
+  <div class="barre-recherche">
+    <input type="text" id="champRecherche" placeholder="Rechercher un article...">
+    <button onclick="lancerRecherche()">→</button>
   </div>
 </section>
 
-<!-- CONTENU PRINCIPAL -->
-<div class="container" id="articles">
+<!-- ==================== CONTENU ==================== -->
+<div class="contenu" id="articles">
 
   <!-- Article à la une -->
-  <div id="featuredSection"></div>
+  <div id="sectionUne"></div>
 
-  <!-- Catégories + titre section -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin:2.5rem 0 1rem;flex-wrap:wrap;gap:1rem">
-    <h2 style="font-family:'Fraunces',serif;font-size:1.4rem;font-weight:600">
-      Derniers articles
-    </h2>
-    <div class="cats-scroll" id="catsFilter" style="margin:0">
-      <button class="cat-pill active" onclick="filtrerCategorie(null,this)">Tous</button>
+  <!-- Titre + filtres -->
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
+    <h2 style="font-size: 1.2rem; color: #222;">Derniers articles</h2>
+    <div class="filtres" id="filtresCategories">
+      <!-- Les boutons de catégorie sont ajoutés par le JS -->
+      <button class="filtre actif" onclick="filtrerParCategorie(null, this)">Tous</button>
     </div>
   </div>
 
-  <!-- Grille articles -->
-  <div class="articles-grid" id="articlesGrid"></div>
+  <!-- Grille des articles -->
+  <div class="grille" id="grilleArticles"></div>
 
   <!-- Pagination -->
   <div class="pagination" id="pagination"></div>
+
 </div>
 
-<!-- FOOTER -->
+<!-- ==================== FOOTER ==================== -->
 <footer>
   <p>&copy; 2025 <strong>MinimalBlog</strong> — Projet BD ESISA · Pr. FENNANE SALMA</p>
 </footer>
 
-<!-- ===== MODAL : ÉCRIRE UN ARTICLE ===== -->
-<div class="modal-overlay" id="articleOverlay">
-  <div class="modal" style="max-height:90vh;overflow-y:auto">
-    <div class="modal-header">
+<!-- ==================== POPUP : ÉCRIRE UN ARTICLE ==================== -->
+<div class="modal-fond" id="popupEcrire">
+  <div class="modal-boite">
+
+    <div class="modal-entete">
       <h3>✏️ Publier un article</h3>
-      <button class="btn-close" onclick="fermerFormArticle()">✕</button>
+      <button class="btn-fermer" onclick="fermerModal()">✕</button>
     </div>
 
-    <div class="form-row">
-      <div class="form-group">
+    <!-- Ligne : catégorie + auteur -->
+    <div class="form-ligne">
+      <div class="champ">
         <label>Catégorie *</label>
-        <select id="wCat" style="width:100%;padding:0.65rem 1rem;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;color:var(--blanc);font-family:'DM Sans',sans-serif;font-size:0.88rem">
-        </select>
+        <select id="champCategorie"></select>
       </div>
-      <div class="form-group" style="display:flex;flex-direction:column;gap:0.5rem">
-        <label>Auteur *</label>
-        <input type="text" id="wAuteur" placeholder="Votre nom">
+      <div class="champ">
+        <label>Votre nom *</label>
+        <input type="text" id="champAuteur" placeholder="Ex: Jean Dupont">
       </div>
     </div>
 
-    <div class="form-group">
+    <div class="champ">
       <label>Titre de l'article *</label>
-      <input type="text" id="wTitre" placeholder="Un titre accrocheur...">
+      <input type="text" id="champTitre" placeholder="Un titre accrocheur...">
     </div>
 
-    <div class="form-group">
-      <label>Image (URL) <span style="color:var(--gris);font-weight:400">(optionnel)</span></label>
-      <input type="text" id="wImage" placeholder="https://images.unsplash.com/photo-…"
-        oninput="previewWImage(this.value)">
-      <div id="wImgPreview" style="margin-top:0.5rem;height:100px;border-radius:8px;overflow:hidden;display:none;background:var(--navy3)">
-        <img id="wImgPreviewEl" style="width:100%;height:100%;object-fit:cover">
+    <div class="champ">
+      <label>Lien image <span style="color:#888; font-weight:normal;">(facultatif)</span></label>
+      <input type="text" id="champImage" placeholder="https://..." oninput="previewImage(this.value)">
+      <!-- Prévisualisation de l'image -->
+      <div id="previewImg" style="display:none; margin-top:8px; height:90px; border-radius:5px; overflow:hidden; background:#eee;">
+        <img id="imgPreview" style="width:100%; height:100%; object-fit:cover;">
       </div>
     </div>
 
-    <div class="form-group">
-      <label>Contenu * <span style="color:var(--gris);font-weight:400;font-size:0.8rem">— séparez les paragraphes par une ligne vide</span></label>
-      <textarea id="wContenu" rows="10" placeholder="Écrivez votre article ici...&#10;&#10;Vous pouvez écrire plusieurs paragraphes en sautant une ligne."></textarea>
+    <div class="champ">
+      <label>Contenu * <span style="color:#888; font-weight:normal;">(séparez les paragraphes par une ligne vide)</span></label>
+      <textarea id="champContenu" rows="9" placeholder="Écrivez votre article ici..."></textarea>
     </div>
 
-    <div id="wError" class="alert alert-error" style="display:none"></div>
+    <!-- Message d'erreur -->
+    <div id="msgErreur" class="alerte alerte-err" style="display:none;"></div>
 
-    <div style="display:flex;gap:0.8rem;justify-content:flex-end;margin-top:1rem">
-      <button class="btn btn-secondary" onclick="fermerFormArticle()">Annuler</button>
-      <button class="btn btn-primary" id="wBtnPublier" onclick="publierArticle()">🚀 Publier</button>
+    <!-- Boutons en bas -->
+    <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:15px;">
+      <button class="btn btn-gris" onclick="fermerModal()">Annuler</button>
+      <button class="btn btn-bleu" id="btnPublier" onclick="publierArticle()">🚀 Publier</button>
     </div>
+
   </div>
 </div>
 
+<!-- ==================== JS ==================== -->
 <script src="js/db.js"></script>
 <script>
+
+  // Lance la base de données (localStorage)
   DB.init();
 
-  let pageActuelle = 1;
-  const PAR_PAGE = 6;
-  let categorieActive = null;
-  let rechercheActive = '';
+  // Variables globales pour la pagination et les filtres
+  var pageCourante   = 1;
+  var ARTICLES_PAGE  = 6;
+  var categorieFil   = null;   // null = toutes les catégories
+  var rechercheFil   = '';     // texte de recherche
 
-  // ---- Charger catégories ----
-  (function() {
-    const filter = document.getElementById('catsFilter');
-    const wCat   = document.getElementById('wCat');
-    DB.getCategories().forEach(cat => {
-      // Filtre
-      const btn = document.createElement('button');
-      btn.className = 'cat-pill';
-      btn.textContent = `${cat.icon} ${cat.nom}`;
-      btn.onclick = function() { filtrerCategorie(cat.id, this); };
-      filter.appendChild(btn);
-      // Select modal
-      wCat.innerHTML += `<option value="${cat.id}">${cat.icon} ${escapeHtml(cat.nom)}</option>`;
+  // ============================================================
+  // CHARGEMENT DES CATÉGORIES (filtres + select du formulaire)
+  // ============================================================
+  (function chargerCategories() {
+    var filtres  = document.getElementById('filtresCategories');
+    var selectCat = document.getElementById('champCategorie');
+
+    DB.getCategories().forEach(function(cat) {
+      // Bouton filtre
+      var btn = document.createElement('button');
+      btn.className = 'filtre';
+      btn.textContent = cat.icon + ' ' + cat.nom;
+      btn.onclick = function() { filtrerParCategorie(cat.id, this); };
+      filtres.appendChild(btn);
+
+      // Option dans le select du formulaire
+      selectCat.innerHTML += '<option value="' + cat.id + '">' + cat.icon + ' ' + escapeHtml(cat.nom) + '</option>';
     });
   })();
 
-  // ---- Article à la une ----
-  (function() {
-    const featured = DB.getFeatured();
-    if (!featured) return;
-    const cat  = DB.getCategorieById(featured.categorie_id);
-    const coms = DB.getCommentaires(featured.id, true);
+  // ============================================================
+  // ARTICLE À LA UNE
+  // ============================================================
+  (function afficherUne() {
+    var article = DB.getFeatured();
+    if (!article) return;
 
-    document.getElementById('featuredSection').innerHTML = `
-      <div style="margin-top:2.5rem">
-        <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem">
-          <div style="width:20px;height:2px;background:var(--teal)"></div>
-          <span style="font-size:0.75rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--teal);font-weight:600">À la une</span>
-        </div>
-        <div class="featured" onclick="window.location='article.html?id=${featured.id}'">
-          <span class="featured-badge">✦ À LA UNE</span>
-          <img src="${escapeHtml(featured.image_principale)}" alt="${escapeHtml(featured.titre)}"
-            onerror="this.parentElement.style.background='linear-gradient(135deg,#1f2937,#374151)'">
-          <div class="featured-content">
-            <span class="featured-tag">${cat ? escapeHtml(cat.nom) : 'Article'}</span>
-            <h2>${escapeHtml(featured.titre)}</h2>
-            <div class="featured-meta">
-              <span>✍️ ${escapeHtml(featured.auteur)}</span>
-              <span>·</span>
-              <span>📅 ${formatDate(featured.date_publication)}</span>
-              <span>·</span>
-              <span>💬 ${coms.length} commentaire${coms.length !== 1 ? 's' : ''}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
+    var cat  = DB.getCategorieById(article.categorie_id);
+    var coms = DB.getCommentaires(article.id, true);
+
+    document.getElementById('sectionUne').innerHTML =
+      '<p style="font-size:0.78rem; font-weight:bold; color:#3b82f6; text-transform:uppercase; letter-spacing:1px; margin-top:22px; margin-bottom:8px;">✦ À la une</p>' +
+      '<div class="une" onclick="window.location=\'article.html?id=' + article.id + '\'">' +
+        '<img src="' + escapeHtml(article.image_principale) + '" alt="' + escapeHtml(article.titre) + '" onerror="this.style.display=\'none\'">' +
+        '<div class="une-texte">' +
+          (cat ? '<span class="etiq etiq-bleu">' + cat.icon + ' ' + escapeHtml(cat.nom) + '</span>' : '') +
+          '<h2>' + escapeHtml(article.titre) + '</h2>' +
+          '<p class="une-meta">✍️ ' + escapeHtml(article.auteur) + ' &nbsp;|&nbsp; 📅 ' + formatDate(article.date_publication) + ' &nbsp;|&nbsp; 💬 ' + coms.length + ' commentaire(s)</p>' +
+          '<p style="margin-top:12px; color:#3b82f6; font-weight:bold; font-size:0.85rem;">Lire l\'article →</p>' +
+        '</div>' +
+      '</div>';
   })();
 
-  // ---- Filtrer ----
-  function filtrerCategorie(id, btn) {
-    categorieActive = id; pageActuelle = 1;
-    document.querySelectorAll('.cat-pill').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+  // ============================================================
+  // FILTRER PAR CATÉGORIE
+  // ============================================================
+  function filtrerParCategorie(id, bouton) {
+    categorieFil = id;
+    pageCourante = 1;
+    // Enlever "actif" de tous les boutons puis l'ajouter au bouton cliqué
+    document.querySelectorAll('.filtre').forEach(function(b) { b.classList.remove('actif'); });
+    bouton.classList.add('actif');
     afficherArticles();
   }
 
-  function rechercherArticles() {
-    rechercheActive = document.getElementById('searchInput').value.trim();
-    pageActuelle = 1;
+  // ============================================================
+  // RECHERCHE
+  // ============================================================
+  function lancerRecherche() {
+    rechercheFil = document.getElementById('champRecherche').value.trim();
+    pageCourante = 1;
     afficherArticles();
   }
-  document.getElementById('searchInput').addEventListener('keyup', e => {
-    if (e.key === 'Enter') rechercherArticles();
-    if (!e.target.value) { rechercheActive = ''; afficherArticles(); }
+
+  // Chercher aussi en appuyant sur Entrée
+  document.getElementById('champRecherche').addEventListener('keyup', function(e) {
+    if (e.key === 'Enter') lancerRecherche();
+    if (this.value === '') { rechercheFil = ''; afficherArticles(); }
   });
 
-  // ---- Afficher articles ----
+  // ============================================================
+  // AFFICHER LES ARTICLES
+  // ============================================================
   function afficherArticles() {
-    let arts = DB.getArticles('publie', categorieActive, rechercheActive || null);
-    const featured = DB.getFeatured();
-    if (featured && !categorieActive && !rechercheActive) {
-      arts = arts.filter(a => a.id !== featured.id);
+    // Récupérer les articles publiés (avec filtres)
+    var articles = DB.getArticles('publie', categorieFil, rechercheFil || null);
+
+    // Retirer l'article à la une de la liste (si pas de filtre actif)
+    var articleUne = DB.getFeatured();
+    if (articleUne && !categorieFil && !rechercheFil) {
+      articles = articles.filter(function(a) { return a.id !== articleUne.id; });
     }
 
-    const total      = arts.length;
-    const totalPages = Math.ceil(total / PAR_PAGE);
-    const page       = arts.slice((pageActuelle - 1) * PAR_PAGE, pageActuelle * PAR_PAGE);
-    const grid       = document.getElementById('articlesGrid');
+    var total       = articles.length;
+    var totalPages  = Math.ceil(total / ARTICLES_PAGE);
+    var pagePart    = articles.slice((pageCourante - 1) * ARTICLES_PAGE, pageCourante * ARTICLES_PAGE);
+    var grille      = document.getElementById('grilleArticles');
 
-    if (page.length === 0) {
-      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
-        <span class="icon">🔍</span>
-        Aucun article trouvé.
-      </div>`;
+    // Aucun article trouvé
+    if (pagePart.length === 0) {
+      grille.innerHTML = '<div class="vide" style="grid-column:1/-1;"><span class="emoji">🔍</span>Aucun article trouvé.</div>';
       document.getElementById('pagination').innerHTML = '';
       return;
     }
 
-    grid.innerHTML = page.map(a => {
-      const cat    = DB.getCategorieById(a.categorie_id);
-      const coms   = DB.getCommentaires(a.id, true);
-      const extrait = a.contenu.replace(/\n/g, ' ').substring(0, 130) + '…';
-      const initls = initials(a.auteur);
-      return `
-        <div class="card" onclick="window.location='article.html?id=${a.id}'">
-          <div class="card-thumb">
-            ${a.image_principale
-              ? `<img src="${escapeHtml(a.image_principale)}" alt="${escapeHtml(a.titre)}" loading="lazy"
-                   onerror="this.parentElement.style.background='linear-gradient(135deg,#1f2937,#374151)';this.remove()">`
-              : `<div style="height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--navy2),var(--navy3));color:var(--gris);font-size:3rem">📝</div>`
-            }
-            <span class="card-cat">${cat ? `${cat.icon} ${escapeHtml(cat.nom)}` : 'Divers'}</span>
-          </div>
-          <div class="card-body">
-            <div class="card-title">${escapeHtml(a.titre)}</div>
-            <div class="card-excerpt">${escapeHtml(extrait)}</div>
-            <div class="card-footer">
-              <div class="card-author">
-                <div class="author-avatar">${initls}</div>
-                <div>
-                  <div class="card-author-name">${escapeHtml(a.auteur)}</div>
-                  <div class="card-date">${formatDateShort(a.date_publication)}</div>
-                </div>
-              </div>
-              <span class="read-link" style="display:flex;align-items:center;gap:0.4rem">
-                💬 ${coms.length} <span>→</span>
-              </span>
-            </div>
-          </div>
-        </div>
-      `;
+    // Générer les cartes HTML
+    grille.innerHTML = pagePart.map(function(a) {
+      var cat     = DB.getCategorieById(a.categorie_id);
+      var coms    = DB.getCommentaires(a.id, true);
+      var extrait = a.contenu.replace(/\n/g, ' ').substring(0, 120) + '…';
+      var initls  = initials(a.auteur);
+
+      return '' +
+        '<div class="carte" onclick="window.location=\'article.html?id=' + a.id + '\'">' +
+          '<div class="carte-photo">' +
+            (a.image_principale
+              ? '<img src="' + escapeHtml(a.image_principale) + '" loading="lazy" onerror="this.parentElement.style.background=\'#eee\';this.remove();">'
+              : '<div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:3rem;">📝</div>'
+            ) +
+            '<span class="carte-categorie">' + (cat ? cat.icon + ' ' + escapeHtml(cat.nom) : 'Divers') + '</span>' +
+          '</div>' +
+          '<div class="carte-info">' +
+            '<div class="carte-titre">' + escapeHtml(a.titre) + '</div>' +
+            '<div class="carte-resume">' + escapeHtml(extrait) + '</div>' +
+            '<div class="carte-pied">' +
+              '<span><span class="initiales">' + initls + '</span>' + escapeHtml(a.auteur) + '</span>' +
+              '<span>💬 ' + coms.length + '</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
     }).join('');
 
+    // Afficher la pagination
     afficherPagination(totalPages);
   }
 
+  // ============================================================
+  // PAGINATION
+  // ============================================================
   function afficherPagination(total) {
-    const div = document.getElementById('pagination');
+    var div = document.getElementById('pagination');
     if (total <= 1) { div.innerHTML = ''; return; }
-    let html = '';
-    for (let i = 1; i <= total; i++) {
-      html += `<button class="page-btn ${i === pageActuelle ? 'active' : ''}" onclick="changerPage(${i})">${i}</button>`;
+
+    var html = '';
+    for (var i = 1; i <= total; i++) {
+      html += '<button class="page-btn ' + (i === pageCourante ? 'actif' : '') + '" onclick="changerPage(' + i + ')">' + i + '</button>';
     }
     div.innerHTML = html;
   }
 
   function changerPage(n) {
-    pageActuelle = n;
+    pageCourante = n;
     afficherArticles();
-    window.scrollTo({ top: document.getElementById('articles').offsetTop - 80, behavior: 'smooth' });
+    // Remonter vers la section articles
+    window.scrollTo({ top: document.getElementById('articles').offsetTop - 70, behavior: 'smooth' });
   }
 
+  // Premier affichage
   afficherArticles();
 
-  // ===== FORMULAIRE PUBLICATION ARTICLE =====
-  function ouvrirFormArticle() {
-    document.getElementById('articleOverlay').classList.add('open');
-    document.getElementById('wTitre').focus();
+  // ============================================================
+  // POPUP : ÉCRIRE UN ARTICLE
+  // ============================================================
+  function ouvrirModal() {
+    document.getElementById('popupEcrire').classList.add('ouvert');
+    document.getElementById('champTitre').focus();
   }
 
-  function fermerFormArticle() {
-    document.getElementById('articleOverlay').classList.remove('open');
-    document.getElementById('wError').style.display = 'none';
+  function fermerModal() {
+    document.getElementById('popupEcrire').classList.remove('ouvert');
+    document.getElementById('msgErreur').style.display = 'none';
   }
 
-  function previewWImage(url) {
-    const preview = document.getElementById('wImgPreview');
-    const img     = document.getElementById('wImgPreviewEl');
+  // Prévisualiser l'image
+  function previewImage(url) {
+    var boite = document.getElementById('previewImg');
+    var img   = document.getElementById('imgPreview');
     if (url) {
-      preview.style.display = 'block';
+      boite.style.display = 'block';
       img.src = url;
-      img.onerror = () => { preview.style.display = 'none'; };
+      img.onerror = function() { boite.style.display = 'none'; };
     } else {
-      preview.style.display = 'none';
+      boite.style.display = 'none';
     }
   }
 
+  // Publier l'article
   function publierArticle() {
-    const titre   = document.getElementById('wTitre').value.trim();
-    const auteur  = document.getElementById('wAuteur').value.trim();
-    const contenu = document.getElementById('wContenu').value.trim();
-    const catId   = parseInt(document.getElementById('wCat').value);
-    const image   = document.getElementById('wImage').value.trim();
-    const errDiv  = document.getElementById('wError');
-    const btn     = document.getElementById('wBtnPublier');
+    var titre   = document.getElementById('champTitre').value.trim();
+    var auteur  = document.getElementById('champAuteur').value.trim();
+    var contenu = document.getElementById('champContenu').value.trim();
+    var catId   = parseInt(document.getElementById('champCategorie').value);
+    var image   = document.getElementById('champImage').value.trim();
+    var erreur  = document.getElementById('msgErreur');
+    var bouton  = document.getElementById('btnPublier');
 
-    errDiv.style.display = 'none';
+    erreur.style.display = 'none';
 
-    if (!titre)   { errDiv.textContent = '❌ Le titre est obligatoire.';   errDiv.style.display='block'; return; }
-    if (!auteur)  { errDiv.textContent = '❌ Le nom de l\'auteur est obligatoire.'; errDiv.style.display='block'; return; }
-    if (!contenu) { errDiv.textContent = '❌ Le contenu est obligatoire.'; errDiv.style.display='block'; return; }
+    // Vérifications
+    if (!titre)   { erreur.textContent = '❌ Le titre est obligatoire.';         erreur.style.display = 'block'; return; }
+    if (!auteur)  { erreur.textContent = '❌ Le nom de l\'auteur est obligatoire.'; erreur.style.display = 'block'; return; }
+    if (!contenu) { erreur.textContent = '❌ Le contenu est obligatoire.';       erreur.style.display = 'block'; return; }
 
-    btn.disabled = true;
-    btn.textContent = '⏳ Publication…';
+    // Désactiver le bouton pendant la publication
+    bouton.disabled = true;
+    bouton.textContent = '⏳ En cours…';
 
-    const id = DB.addArticle({
-      titre, auteur, contenu,
-      categorie_id: catId,
-      statut: 'publie',
-      image_principale: image
+    // Ajouter l'article dans la base de données
+    var id = DB.addArticle({
+      titre: titre, auteur: auteur, contenu: contenu,
+      categorie_id: catId, statut: 'publie', image_principale: image
     });
 
-    // Réinitialiser le formulaire
-    ['wTitre','wAuteur','wContenu','wImage'].forEach(fId => {
-      document.getElementById(fId).value = '';
-    });
-    document.getElementById('wImgPreview').style.display = 'none';
-    btn.disabled = false;
-    btn.textContent = '🚀 Publier';
+    // Vider le formulaire
+    document.getElementById('champTitre').value   = '';
+    document.getElementById('champAuteur').value  = '';
+    document.getElementById('champContenu').value = '';
+    document.getElementById('champImage').value   = '';
+    document.getElementById('previewImg').style.display = 'none';
+    bouton.disabled = false;
+    bouton.textContent = '🚀 Publier';
 
-    fermerFormArticle();
+    fermerModal();
     showNotification('✅ Article publié avec succès !');
 
     // Aller lire l'article
-    setTimeout(() => { window.location.href = `article.html?id=${id}`; }, 800);
+    setTimeout(function() { window.location.href = 'article.html?id=' + id; }, 700);
   }
 
-  // Fermer modal avec Echap
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') fermerFormArticle();
+  // Fermer le popup avec la touche Echap
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') fermerModal();
   });
-  document.getElementById('articleOverlay').addEventListener('click', e => {
-    if (e.target === document.getElementById('articleOverlay')) fermerFormArticle();
+
+  // Fermer le popup en cliquant dehors
+  document.getElementById('popupEcrire').addEventListener('click', function(e) {
+    if (e.target === this) fermerModal();
   });
+
 </script>
 </body>
 </html>

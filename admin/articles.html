@@ -6,58 +6,62 @@
   <title>Admin — Articles</title>
   <link rel="stylesheet" href="../css/style.css">
   <style>
-    .form-ctrl {
-      padding:0.6rem 1rem;
-      background:var(--card-bg);
-      border:1px solid var(--border);
-      border-radius:8px;
-      font-family:'DM Sans',sans-serif;
-      font-size:0.88rem;
-      color:var(--blanc);
-      outline:none;
+    /* Petits champs de filtre dans la barre de recherche */
+    .filtre-champ {
+      padding: 7px 11px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 0.88rem;
+      font-family: Arial, sans-serif;
+      background: white;
+      color: #333;
+      outline: none;
     }
-    .form-ctrl option { background:var(--navy2); }
+    .filtre-champ:focus { border-color: #3b82f6; }
   </style>
 </head>
 <body>
+
 <div class="admin-layout">
-  <aside class="sidebar">
-    <div class="sidebar-logo" onclick="location.reload()" style="cursor:pointer" title="Rafraîchir">Minimal<span>Blog</span></div>
-    <div class="sidebar-section">Navigation</div>
-    <ul class="sidebar-nav">
-      <li><a href="dashboard.html">📊 Tableau de bord</a></li>
-      <li><a href="articles.html" class="active">📝 Articles</a></li>
-      <li><a href="commentaires.html">💬 Commentaires</a></li>
-    </ul>
-    <div class="sidebar-section" style="margin-top:1.5rem">Actions</div>
-    <ul class="sidebar-nav">
-      <li><a href="../index.html" target="_blank">🌐 Voir le blog</a></li>
-      <li><a href="#" onclick="doLogout()">🚪 Déconnexion</a></li>
-    </ul>
+
+  <!-- ======== MENU GAUCHE ======== -->
+  <aside class="admin-menu">
+    <a href="dashboard.html" class="logo-menu">Minimal<span>Blog</span></a>
+    <div class="section-titre">Navigation</div>
+    <a href="dashboard.html">📊 Tableau de bord</a>
+    <a href="articles.html" class="actif">📝 Articles</a>
+    <a href="commentaires.html">💬 Commentaires</a>
+    <div class="section-titre">Actions</div>
+    <a href="../index.html" target="_blank">🌐 Voir le blog</a>
+    <a href="#" onclick="deconnecter()">🚪 Déconnexion</a>
   </aside>
 
-  <div class="admin-main">
-    <div class="admin-topbar">
+  <!-- ======== CONTENU PRINCIPAL ======== -->
+  <div class="admin-corps">
+
+    <div class="admin-barre">
       <h2>Gestion des Articles</h2>
-      <button class="btn btn-primary" onclick="ouvrirAjout()">+ Nouvel article</button>
+      <button class="btn btn-bleu" onclick="ouvrirNouvelArticle()">+ Nouvel article</button>
     </div>
 
-    <div class="admin-content">
-      <div style="display:flex;gap:0.8rem;margin-bottom:1.5rem;flex-wrap:wrap">
-        <select id="filtStatut" onchange="charger()" class="form-ctrl">
+    <div class="admin-contenu">
+
+      <!-- Filtres de recherche -->
+      <div style="display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap;">
+        <select id="filtreStatut" onchange="chargerTableau()" class="filtre-champ">
           <option value="">Tous les statuts</option>
           <option value="publie">Publiés</option>
           <option value="brouillon">Brouillons</option>
         </select>
-        <select id="filtCat" onchange="charger()" class="form-ctrl">
+        <select id="filtreCategorie" onchange="chargerTableau()" class="filtre-champ">
           <option value="">Toutes les catégories</option>
         </select>
-        <input type="text" id="filtSearch" placeholder="🔍 Rechercher…" oninput="charger()"
-          class="form-ctrl" style="flex:1;min-width:200px">
+        <input type="text" id="filtreTexte" placeholder="🔍 Rechercher…" oninput="chargerTableau()" class="filtre-champ" style="flex:1; min-width:160px;">
       </div>
 
-      <div class="table-wrap">
-        <table class="data-table">
+      <!-- Tableau des articles -->
+      <div class="tableau-wrap">
+        <table class="tableau">
           <thead>
             <tr>
               <th>#</th>
@@ -71,60 +75,70 @@
               <th>Actions</th>
             </tr>
           </thead>
-          <tbody id="tbody">
-            <tr><td colspan="9" class="empty-state">Chargement…</td></tr>
+          <tbody id="corps-tableau">
+            <tr><td colspan="9" class="vide">Chargement…</td></tr>
           </tbody>
         </table>
       </div>
+
     </div>
   </div>
 </div>
 
-<!-- MODAL ARTICLE -->
-<div class="modal-overlay" id="overlay">
-  <div class="modal" style="max-height:90vh;overflow-y:auto">
-    <div class="modal-header">
-      <h3 id="modalTitle">Nouvel article</h3>
-      <button class="btn-close" onclick="fermer()">✕</button>
+<!-- ======== POPUP : AJOUTER / MODIFIER UN ARTICLE ======== -->
+<div class="modal-fond" id="popupArticle">
+  <div class="modal-boite">
+
+    <div class="modal-entete">
+      <h3 id="titrePoup">Nouvel article</h3>
+      <button class="btn-fermer" onclick="fermerPopup()">✕</button>
     </div>
-    <input type="hidden" id="artId">
-    <div class="form-row">
-      <div class="form-group">
+
+    <!-- ID caché (pour la modification) -->
+    <input type="hidden" id="idArticle">
+
+    <div class="form-ligne">
+      <div class="champ">
         <label>Catégorie *</label>
-        <select id="fCat" class="form-ctrl"></select>
+        <select id="fCategorie"></select>
       </div>
-      <div class="form-group">
+      <div class="champ">
         <label>Statut</label>
-        <select id="fStatut" class="form-ctrl">
+        <select id="fStatut">
           <option value="brouillon">✏️ Brouillon</option>
           <option value="publie">✅ Publié</option>
         </select>
       </div>
     </div>
-    <div class="form-group">
+
+    <div class="champ">
       <label>Titre *</label>
       <input type="text" id="fTitre" placeholder="Titre de l'article">
     </div>
-    <div class="form-group">
+
+    <div class="champ">
       <label>Auteur *</label>
       <input type="text" id="fAuteur" placeholder="Nom de l'auteur">
     </div>
-    <div class="form-group">
-      <label>Image (URL Unsplash ou autre)</label>
-      <input type="text" id="fImage" placeholder="https://images.unsplash.com/photo-…"
-        oninput="previewImage(this.value)">
-      <div id="imgPreview" style="margin-top:0.5rem;height:120px;border-radius:8px;overflow:hidden;display:none;background:var(--navy3)">
-        <img id="imgPreviewEl" style="width:100%;height:100%;object-fit:cover">
+
+    <div class="champ">
+      <label>Lien image <span style="color:#888; font-weight:normal;">(facultatif)</span></label>
+      <input type="text" id="fImage" placeholder="https://...">
+      <div id="imgPreviewBoite" style="display:none; margin-top:8px; height:100px; border-radius:5px; overflow:hidden; background:#eee;">
+        <img id="imgPreviewEl" style="width:100%; height:100%; object-fit:cover;">
       </div>
     </div>
-    <div class="form-group">
-      <label>Contenu * <span style="color:var(--gris);font-weight:400;font-size:0.8rem">(Ctrl+Entrée pour sauvegarder)</span></label>
-      <textarea id="fContenu" rows="10" placeholder="Contenu de l'article… Séparez les paragraphes par une ligne vide."></textarea>
+
+    <div class="champ">
+      <label>Contenu * <span style="color:#888; font-weight:normal; font-size:0.8rem;">(Ctrl+Entrée pour sauvegarder)</span></label>
+      <textarea id="fContenu" rows="10" placeholder="Contenu de l'article…"></textarea>
     </div>
-    <div style="display:flex;gap:0.8rem;justify-content:flex-end;margin-top:1rem">
-      <button class="btn btn-secondary" onclick="fermer()">Annuler</button>
-      <button class="btn btn-primary" id="btnSave" onclick="sauvegarder()">💾 Sauvegarder</button>
+
+    <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:15px;">
+      <button class="btn btn-gris" onclick="fermerPopup()">Annuler</button>
+      <button class="btn btn-bleu" onclick="sauvegarderArticle()">💾 Sauvegarder</button>
     </div>
+
   </div>
 </div>
 
@@ -133,112 +147,175 @@
   DB.init();
   if (!DB.isLoggedIn()) window.location.href = 'login.html';
 
-  DB.getCategories().forEach(c => {
-    document.getElementById('filtCat').innerHTML += `<option value="${c.id}">${c.icon} ${escapeHtml(c.nom)}</option>`;
-    document.getElementById('fCat').innerHTML    += `<option value="${c.id}">${escapeHtml(c.nom)}</option>`;
+  // Remplir les listes déroulantes de catégories
+  DB.getCategories().forEach(function(c) {
+    document.getElementById('filtreCategorie').innerHTML += '<option value="' + c.id + '">' + c.icon + ' ' + escapeHtml(c.nom) + '</option>';
+    document.getElementById('fCategorie').innerHTML      += '<option value="' + c.id + '">' + escapeHtml(c.nom) + '</option>';
   });
 
+  // Prévisualisation de l'image dans le formulaire
   document.getElementById('fImage').addEventListener('input', function() {
-    const preview = document.getElementById('imgPreview');
-    const img = document.getElementById('imgPreviewEl');
-    if (this.value) { preview.style.display='block'; img.src=this.value; img.onerror=()=>preview.style.display='none'; }
-    else preview.style.display='none';
+    var boite = document.getElementById('imgPreviewBoite');
+    var img   = document.getElementById('imgPreviewEl');
+    if (this.value) {
+      boite.style.display = 'block';
+      img.src = this.value;
+      img.onerror = function() { boite.style.display = 'none'; };
+    } else {
+      boite.style.display = 'none';
+    }
   });
 
-  function charger() {
-    const statut = document.getElementById('filtStatut').value || null;
-    const catId  = document.getElementById('filtCat').value || null;
-    const search = document.getElementById('filtSearch').value.trim() || null;
-    const arts   = DB.getArticles(statut, catId, search);
-    const tbody  = document.getElementById('tbody');
+  // ============================================================
+  // CHARGER LE TABLEAU D'ARTICLES
+  // ============================================================
+  function chargerTableau() {
+    var statut   = document.getElementById('filtreStatut').value || null;
+    var catId    = document.getElementById('filtreCategorie').value || null;
+    var recherche = document.getElementById('filtreTexte').value.trim() || null;
 
-    if (!arts.length) { tbody.innerHTML='<tr><td colspan="9" class="empty-state">Aucun article trouvé.</td></tr>'; return; }
+    var articles = DB.getArticles(statut, catId, recherche);
+    var corps    = document.getElementById('corps-tableau');
 
-    tbody.innerHTML = arts.map(a => {
-      const cat  = DB.getCategorieById(a.categorie_id);
-      const coms = DB.getCommentaires(a.id).length;
-      return `
-        <tr>
-          <td style="color:var(--gris);font-weight:600">${a.id}</td>
-          <td><div style="width:48px;height:36px;border-radius:6px;overflow:hidden;background:var(--navy3)">
-            ${a.image_principale?`<img src="${escapeHtml(a.image_principale)}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='📷'">`:
-            '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:1.2rem">📝</div>'}
-          </div></td>
-          <td style="max-width:200px"><div style="font-weight:600;color:var(--blanc);font-size:0.88rem">${escapeHtml(a.titre.substring(0,50))}${a.titre.length>50?'…':''}</div></td>
-          <td>${cat?`<span class="badge badge-cat">${cat.icon} ${escapeHtml(cat.nom)}</span>`:'—'}</td>
-          <td style="font-size:0.85rem">${escapeHtml(a.auteur)}</td>
-          <td style="font-size:0.82rem;color:var(--gris)">${formatDateShort(a.date_publication)}</td>
-          <td><span class="badge badge-${a.statut}">${a.statut==='publie'?'✅ Publié':'✏️ Brouillon'}</span></td>
-          <td style="text-align:center;color:var(--gris)">${coms}</td>
-          <td><div class="actions">
-            <a href="../article.html?id=${a.id}" target="_blank" class="btn btn-secondary btn-sm">👁</a>
-            <button class="btn btn-success btn-sm" onclick="ouvrirEdit(${a.id})">✏️</button>
-            <button class="btn btn-danger btn-sm"  onclick="supprimer(${a.id})">🗑</button>
-          </div></td>
-        </tr>`;
+    if (articles.length === 0) {
+      corps.innerHTML = '<tr><td colspan="9" class="vide">Aucun article trouvé.</td></tr>';
+      return;
+    }
+
+    corps.innerHTML = articles.map(function(a) {
+      var cat  = DB.getCategorieById(a.categorie_id);
+      var coms = DB.getCommentaires(a.id).length;
+
+      return '' +
+        '<tr>' +
+          '<td style="color:#888; font-weight:bold;">' + a.id + '</td>' +
+          '<td>' +
+            '<div style="width:46px; height:34px; border-radius:4px; overflow:hidden; background:#eee;">' +
+              (a.image_principale
+                ? '<img src="' + escapeHtml(a.image_principale) + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML=\'📷\'">'
+                : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:1.1rem;">📝</div>'
+              ) +
+            '</div>' +
+          '</td>' +
+          '<td style="max-width:190px;"><strong style="font-size:0.88rem; color:#222;">' + escapeHtml(a.titre.substring(0, 48)) + (a.titre.length > 48 ? '…' : '') + '</strong></td>' +
+          '<td>' + (cat ? '<span class="etiq etiq-bleu">' + cat.icon + ' ' + escapeHtml(cat.nom) + '</span>' : '—') + '</td>' +
+          '<td style="font-size:0.85rem;">' + escapeHtml(a.auteur) + '</td>' +
+          '<td style="font-size:0.82rem; color:#888;">' + formatDateShort(a.date_publication) + '</td>' +
+          '<td><span class="etiq ' + (a.statut === 'publie' ? 'etiq-vert' : 'etiq-jaune') + '">' + (a.statut === 'publie' ? '✅ Publié' : '✏️ Brouillon') + '</span></td>' +
+          '<td style="text-align:center; color:#888;">' + coms + '</td>' +
+          '<td>' +
+            '<div class="actions-groupe">' +
+              '<a href="../article.html?id=' + a.id + '" target="_blank" class="btn btn-gris btn-petit">👁</a>' +
+              '<button class="btn btn-vert btn-petit" onclick="ouvrirModification(' + a.id + ')">✏️</button>' +
+              '<button class="btn btn-rouge btn-petit" onclick="supprimerArticle(' + a.id + ')">🗑</button>' +
+            '</div>' +
+          '</td>' +
+        '</tr>';
     }).join('');
   }
-  charger();
 
-  function ouvrirAjout() {
-    document.getElementById('modalTitle').textContent = 'Nouvel article';
-    document.getElementById('artId').value = '';
-    ['fTitre','fAuteur','fContenu','fImage'].forEach(id => document.getElementById(id).value='');
-    document.getElementById('fAuteur').value = '';
-    document.getElementById('fStatut').value = 'brouillon';
-    document.getElementById('fCat').selectedIndex = 0;
-    document.getElementById('imgPreview').style.display = 'none';
-    document.getElementById('overlay').classList.add('open');
+  chargerTableau();
+
+  // ============================================================
+  // OUVRIR LE POPUP (nouveau article)
+  // ============================================================
+  function ouvrirNouvelArticle() {
+    document.getElementById('titrePoup').textContent = 'Nouvel article';
+    document.getElementById('idArticle').value = '';
+    document.getElementById('fTitre').value    = '';
+    document.getElementById('fAuteur').value   = '';
+    document.getElementById('fContenu').value  = '';
+    document.getElementById('fImage').value    = '';
+    document.getElementById('fStatut').value   = 'brouillon';
+    document.getElementById('fCategorie').selectedIndex = 0;
+    document.getElementById('imgPreviewBoite').style.display = 'none';
+    document.getElementById('popupArticle').classList.add('ouvert');
   }
 
-  function ouvrirEdit(id) {
-    const a = DB.getArticleById(id); if (!a) return;
-    document.getElementById('modalTitle').textContent = "Modifier l'article";
-    document.getElementById('artId').value    = a.id;
-    document.getElementById('fTitre').value   = a.titre;
-    document.getElementById('fAuteur').value  = a.auteur;
-    document.getElementById('fContenu').value = a.contenu;
-    document.getElementById('fImage').value   = a.image_principale || '';
-    document.getElementById('fStatut').value  = a.statut;
-    document.getElementById('fCat').value     = a.categorie_id;
-    if (a.image_principale) { document.getElementById('imgPreview').style.display='block'; document.getElementById('imgPreviewEl').src=a.image_principale; }
-    else document.getElementById('imgPreview').style.display='none';
-    document.getElementById('overlay').classList.add('open');
+  // ============================================================
+  // OUVRIR LE POPUP (modifier un article existant)
+  // ============================================================
+  function ouvrirModification(id) {
+    var a = DB.getArticleById(id);
+    if (!a) return;
+
+    document.getElementById('titrePoup').textContent = 'Modifier l\'article';
+    document.getElementById('idArticle').value = a.id;
+    document.getElementById('fTitre').value    = a.titre;
+    document.getElementById('fAuteur').value   = a.auteur;
+    document.getElementById('fContenu').value  = a.contenu;
+    document.getElementById('fImage').value    = a.image_principale || '';
+    document.getElementById('fStatut').value   = a.statut;
+    document.getElementById('fCategorie').value = a.categorie_id;
+
+    if (a.image_principale) {
+      document.getElementById('imgPreviewBoite').style.display = 'block';
+      document.getElementById('imgPreviewEl').src = a.image_principale;
+    } else {
+      document.getElementById('imgPreviewBoite').style.display = 'none';
+    }
+
+    document.getElementById('popupArticle').classList.add('ouvert');
   }
 
-  function fermer() { document.getElementById('overlay').classList.remove('open'); }
-  document.getElementById('overlay').addEventListener('click', e => { if(e.target===document.getElementById('overlay')) fermer(); });
+  // ============================================================
+  // FERMER LE POPUP
+  // ============================================================
+  function fermerPopup() {
+    document.getElementById('popupArticle').classList.remove('ouvert');
+  }
 
-  function sauvegarder() {
-    const id      = document.getElementById('artId').value;
-    const titre   = document.getElementById('fTitre').value.trim();
-    const auteur  = document.getElementById('fAuteur').value.trim();
-    const contenu = document.getElementById('fContenu').value.trim();
-    const catId   = parseInt(document.getElementById('fCat').value);
-    const statut  = document.getElementById('fStatut').value;
-    const image   = document.getElementById('fImage').value.trim();
+  document.getElementById('popupArticle').addEventListener('click', function(e) {
+    if (e.target === this) fermerPopup();
+  });
+
+  // ============================================================
+  // SAUVEGARDER L'ARTICLE
+  // ============================================================
+  function sauvegarderArticle() {
+    var id      = document.getElementById('idArticle').value;
+    var titre   = document.getElementById('fTitre').value.trim();
+    var auteur  = document.getElementById('fAuteur').value.trim();
+    var contenu = document.getElementById('fContenu').value.trim();
+    var catId   = parseInt(document.getElementById('fCategorie').value);
+    var statut  = document.getElementById('fStatut').value;
+    var image   = document.getElementById('fImage').value.trim();
 
     if (!titre)   { alert('Titre obligatoire.'); return; }
     if (!auteur)  { alert('Auteur obligatoire.'); return; }
     if (!contenu) { alert('Contenu obligatoire.'); return; }
 
-    const data = { titre, auteur, contenu, categorie_id: catId, statut, image_principale: image };
-    if (id) { DB.updateArticle(parseInt(id), data); showNotification('Article modifié !'); }
-    else    { DB.addArticle(data); showNotification('Article créé !'); }
-    fermer(); charger();
+    var donnees = { titre: titre, auteur: auteur, contenu: contenu, categorie_id: catId, statut: statut, image_principale: image };
+
+    if (id) {
+      DB.updateArticle(parseInt(id), donnees);
+      showNotification('Article modifié !');
+    } else {
+      DB.addArticle(donnees);
+      showNotification('Article créé !');
+    }
+
+    fermerPopup();
+    chargerTableau();
   }
 
-  function supprimer(id) {
-    const a = DB.getArticleById(id);
-    if (!confirm(`Supprimer "${a.titre}" et ses commentaires ?`)) return;
-    DB.deleteArticle(id); showNotification('Article supprimé.','error'); charger();
+  // ============================================================
+  // SUPPRIMER UN ARTICLE
+  // ============================================================
+  function supprimerArticle(id) {
+    var a = DB.getArticleById(id);
+    if (!confirm('Supprimer "' + a.titre + '" et tous ses commentaires ?')) return;
+    DB.deleteArticle(id);
+    showNotification('Article supprimé.', 'error');
+    chargerTableau();
   }
 
-  function doLogout() { DB.logout(); window.location.href='login.html'; }
+  function deconnecter() { DB.logout(); window.location.href = 'login.html'; }
 
-  document.addEventListener('keydown', e => {
-    if (e.ctrlKey && e.key==='Enter' && document.getElementById('overlay').classList.contains('open')) sauvegarder();
-    if (e.key==='Escape') fermer();
+  // Raccourcis clavier
+  document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'Enter' && document.getElementById('popupArticle').classList.contains('ouvert')) sauvegarderArticle();
+    if (e.key === 'Escape') fermerPopup();
   });
 </script>
 </body>

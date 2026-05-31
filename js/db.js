@@ -235,11 +235,11 @@ function showNotification(msg, type = 'success') {
   d.className = 'notif';
   d.style.cssText = `
     position:fixed;bottom:2rem;right:2rem;z-index:9999;
-    background:${type==='success'?'var(--teal)':'var(--rouge)'};
-    color:${type==='success'?'var(--navy)':'#fff'};
-    padding:0.85rem 1.5rem;border-radius:10px;
-    font-family:'DM Sans',sans-serif;font-size:0.9rem;font-weight:600;
-    box-shadow:0 8px 30px rgba(0,0,0,0.4);
+    background:${type==='success'?'#22c55e':'#ef4444'};
+    color:white;
+    padding:12px 20px;border-radius:8px;
+    font-family:Arial,sans-serif;font-size:0.9rem;font-weight:bold;
+    box-shadow:0 4px 20px rgba(0,0,0,0.15);
     animation:slideUp 0.3s ease;
   `;
   d.textContent = msg;
@@ -249,6 +249,6 @@ function showNotification(msg, type = 'success') {
 
 // Fallback image placeholder si Unsplash ne charge pas
 function imgFallback(el, text) {
-  el.style.cssText = 'display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1f2937,#374151);color:#6b7280;font-size:0.9rem;height:100%';
-  el.innerHTML = `<span>📷 Image non disponible</span>`;
+  el.style.cssText = 'display:flex;align-items:center;justify-content:center;background:#f0f0f0;color:#888;font-size:0.9rem;height:100%';
+  el.innerHTML = '<span>📷 Image non disponible</span>';
 }

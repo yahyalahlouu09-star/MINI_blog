@@ -5,24 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MinimalBlog — Article</title>
   <link rel="stylesheet" href="css/style.css">
-  <style>
-    .comment-card { animation: fadeInCom 0.4s ease both; }
-    @keyframes fadeInCom {
-      from { opacity:0; transform:translateY(12px); }
-      to   { opacity:1; transform:translateY(0); }
-    }
-    .btn-submit-com {
-      display:inline-flex;align-items:center;gap:0.5rem;
-      background:var(--teal);color:var(--navy);
-      border:none;padding:0.7rem 1.5rem;border-radius:8px;
-      font-family:'DM Sans',sans-serif;font-size:0.9rem;font-weight:700;
-      cursor:pointer;transition:opacity 0.2s;
-    }
-    .btn-submit-com:hover { opacity:0.85; }
-  </style>
 </head>
 <body>
 
+<!-- ==================== HEADER ==================== -->
 <header>
   <a href="index.html" class="logo">Minimal<span>Blog</span></a>
   <nav>
@@ -31,163 +17,191 @@
   </nav>
 </header>
 
-<div id="articleHero"></div>
-<div id="articleBody"></div>
+<!-- Image de l'article (remplie par le JS) -->
+<div id="imageArticle"></div>
 
-<!-- Section commentaires -->
-<div class="comments-box" id="commentsBox" style="display:none">
+<!-- Corps de l'article (rempli par le JS) -->
+<div id="corpsArticle"></div>
 
-  <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem">
-    <h3 style="margin:0">Commentaires</h3>
-    <span id="comBadge" style="background:rgba(15,244,198,0.1);border:1px solid rgba(15,244,198,0.25);color:var(--teal);padding:0.2rem 0.7rem;border-radius:20px;font-size:0.78rem;font-weight:700"></span>
-  </div>
+<!-- ==================== COMMENTAIRES ==================== -->
+<div class="com-section" id="sectionCommentaires" style="display:none;">
 
-  <!-- Formulaire -->
-  <div class="comment-form-card">
-    <h4>💬 Laisser un commentaire</h4>
-    <div id="alertSuccess" class="alert alert-success" style="display:none">
-      ✅ Commentaire publié !
-    </div>
-    <div class="form-row">
-      <div class="form-group">
+  <h3 id="titreCommentaires">Commentaires</h3>
+
+  <!-- Formulaire pour écrire un commentaire -->
+  <div class="com-formulaire">
+    <h4 style="margin-bottom:14px;">💬 Laisser un commentaire</h4>
+
+    <!-- Message de confirmation -->
+    <div id="msgOk" class="alerte alerte-ok" style="display:none;">✅ Commentaire publié !</div>
+
+    <div class="form-ligne">
+      <div class="champ">
         <label>Pseudo *</label>
-        <input type="text" id="pseudo" placeholder="Votre pseudo" maxlength="50">
+        <input type="text" id="champPseudo" placeholder="Votre pseudo" maxlength="50">
       </div>
-      <div class="form-group">
-        <label>Email <span style="color:var(--gris);font-weight:400">(optionnel)</span></label>
-        <input type="email" id="email" placeholder="votre@email.com">
+      <div class="champ">
+        <label>Email <span style="color:#888; font-weight:normal;">(facultatif)</span></label>
+        <input type="email" id="champEmail" placeholder="votre@email.com">
       </div>
     </div>
-    <div class="form-group">
+
+    <div class="champ">
       <label>Commentaire *</label>
-      <textarea id="contenu" rows="4" placeholder="Partagez votre avis..."></textarea>
+      <textarea id="champCommentaire" rows="4" placeholder="Partagez votre avis..."></textarea>
     </div>
-    <button class="btn-submit-com" onclick="soumettre()">Publier mon commentaire →</button>
+
+    <button class="btn btn-bleu" onclick="envoyerCommentaire()">Publier mon commentaire →</button>
   </div>
 
-  <!-- Liste -->
-  <div id="commentsList"></div>
+  <!-- Liste des commentaires (remplie par le JS) -->
+  <div id="listeCommentaires"></div>
+
 </div>
 
+<!-- ==================== FOOTER ==================== -->
 <footer>
   <p>&copy; 2025 <strong>MinimalBlog</strong> — Projet BD ESISA · Pr. FENNANE SALMA</p>
 </footer>
 
+<!-- ==================== JS ==================== -->
 <script src="js/db.js"></script>
 <script>
+
   DB.init();
 
-  const params    = new URLSearchParams(window.location.search);
-  const articleId = params.get('id');
+  // Lire l'ID dans l'URL : article.html?id=2
+  var params    = new URLSearchParams(window.location.search);
+  var articleId = params.get('id');
+
+  // Si pas d'ID, retour à l'accueil
   if (!articleId) window.location.href = 'index.html';
 
-  const article = DB.getArticleById(articleId);
+  var article = DB.getArticleById(articleId);
 
+  // ============================================================
+  // ARTICLE INTROUVABLE
+  // ============================================================
   if (!article || article.statut !== 'publie') {
-    document.getElementById('articleBody').innerHTML = `
-      <div class="empty-state" style="padding:6rem 2rem">
-        <span class="icon">😕</span>
-        Article introuvable ou non publié.
-        <br><br>
-        <a href="index.html" class="btn btn-primary mt-1">← Retour à l'accueil</a>
-      </div>`;
+    document.getElementById('corpsArticle').innerHTML =
+      '<div class="vide" style="padding:80px 20px;">' +
+        '<span class="emoji">😕</span>' +
+        'Article introuvable ou non publié.' +
+        '<br><br>' +
+        '<a href="index.html" class="btn btn-bleu" style="display:inline-block; margin-top:15px;">← Retour à l\'accueil</a>' +
+      '</div>';
+
+  // ============================================================
+  // AFFICHER L'ARTICLE
+  // ============================================================
   } else {
-    document.title = `MinimalBlog — ${article.titre}`;
-    const cat  = DB.getCategorieById(article.categorie_id);
-    const coms = DB.getCommentaires(article.id, true);
+    document.title = 'MinimalBlog — ' + article.titre;
 
-    // Hero
-    document.getElementById('articleHero').innerHTML = `
-      <div class="article-hero">
-        ${article.image_principale
-          ? `<img src="${escapeHtml(article.image_principale)}" alt="${escapeHtml(article.titre)}"
-               onerror="this.style.display='none'">`
-          : `<div style="height:100%;background:linear-gradient(135deg,var(--navy2),var(--navy3))"></div>`
-        }
-        <div class="article-hero-content" style="padding:3rem 2rem">
-          ${cat ? `<span style="display:inline-block;background:rgba(15,244,198,0.15);border:1px solid rgba(15,244,198,0.3);color:var(--teal);font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:0.3rem 0.9rem;border-radius:20px;margin-bottom:1rem">${cat.icon} ${escapeHtml(cat.nom)}</span>` : ''}
-          <h1 style="font-family:'Fraunces',serif;font-size:clamp(1.8rem,4vw,3rem);font-weight:700;line-height:1.2;color:white;max-width:800px;margin:0 auto 1rem">${escapeHtml(article.titre)}</h1>
-        </div>
-      </div>
-    `;
+    var cat  = DB.getCategorieById(article.categorie_id);
+    var coms = DB.getCommentaires(article.id, true);
 
-    // Body
-    document.getElementById('articleBody').innerHTML = `
-      <div class="article-body">
-        <div class="article-meta-bar">
-          <div style="display:flex;align-items:center;gap:0.6rem">
-            <div class="author-avatar">${initials(article.auteur)}</div>
-            <span style="font-weight:600;color:var(--blanc);font-size:0.9rem">${escapeHtml(article.auteur)}</span>
-          </div>
-          <span>📅 ${formatDate(article.date_publication)}</span>
-          <span>💬 <span id="metaComCount">${coms.length}</span> commentaire${coms.length !== 1 ? 's' : ''}</span>
-        </div>
-        <div class="article-content">
-          ${article.contenu.split('\n').filter(p => p.trim()).map(p => `<p>${escapeHtml(p)}</p>`).join('')}
-        </div>
-        ${cat ? `<div style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border)">
-          <span style="font-size:0.8rem;color:var(--gris);margin-right:0.5rem">Catégorie :</span>
-          <span class="badge badge-cat">${cat.icon} ${escapeHtml(cat.nom)}</span>
-        </div>` : ''}
-      </div>
-    `;
+    // -- Image en haut --
+    if (article.image_principale) {
+      document.getElementById('imageArticle').innerHTML =
+        '<div class="article-image">' +
+          '<img src="' + escapeHtml(article.image_principale) + '" alt="' + escapeHtml(article.titre) + '" onerror="this.parentElement.style.display=\'none\'">' +
+        '</div>';
+    }
 
-    // Commentaires
-    document.getElementById('commentsBox').style.display = 'block';
+    // -- Corps de l'article --
+    document.getElementById('corpsArticle').innerHTML =
+      '<div class="article-corps">' +
+
+        // Catégorie
+        (cat ? '<span class="etiq etiq-bleu" style="margin-bottom:12px; display:inline-block;">' + cat.icon + ' ' + escapeHtml(cat.nom) + '</span>' : '') +
+
+        // Titre
+        '<h1 style="font-size:clamp(1.4rem, 3vw, 2rem); font-weight:bold; color:#222; margin-bottom:14px; line-height:1.3;">' + escapeHtml(article.titre) + '</h1>' +
+
+        // Méta : auteur, date, commentaires
+        '<div class="article-meta">' +
+          '<span>' +
+            '<span class="initiales">' + initials(article.auteur) + '</span>' +
+            '<strong>' + escapeHtml(article.auteur) + '</strong>' +
+          '</span>' +
+          '<span>📅 ' + formatDate(article.date_publication) + '</span>' +
+          '<span>💬 <span id="nbCommentaires">' + coms.length + '</span> commentaire(s)</span>' +
+        '</div>' +
+
+        // Texte de l'article (paragraphe par paragraphe)
+        '<div class="article-texte">' +
+          article.contenu.split('\n').filter(function(p) { return p.trim() !== ''; }).map(function(p) {
+            return '<p>' + escapeHtml(p) + '</p>';
+          }).join('') +
+        '</div>' +
+
+        // Catégorie en bas
+        (cat ? '<div style="margin-top:20px; padding-top:14px; border-top:1px solid #e0e0e0;"><span style="font-size:0.8rem; color:#888;">Catégorie : </span><span class="etiq etiq-bleu">' + cat.icon + ' ' + escapeHtml(cat.nom) + '</span></div>' : '') +
+
+      '</div>';
+
+    // Afficher la section commentaires
+    document.getElementById('sectionCommentaires').style.display = 'block';
     afficherCommentaires();
   }
 
+  // ============================================================
+  // AFFICHER LA LISTE DES COMMENTAIRES
+  // ============================================================
   function afficherCommentaires() {
-    const coms = DB.getCommentaires(articleId, true);
-    const div  = document.getElementById('commentsList');
+    var coms = DB.getCommentaires(articleId, true);
+    var liste = document.getElementById('listeCommentaires');
 
-    // Compteurs
-    const badge = document.getElementById('comBadge');
-    if (badge) badge.textContent = `${coms.length} commentaire${coms.length !== 1 ? 's' : ''}`;
-    const meta = document.getElementById('metaComCount');
-    if (meta) meta.textContent = coms.length;
+    // Mettre à jour le titre et le compteur
+    document.getElementById('titreCommentaires').textContent = 'Commentaires (' + coms.length + ')';
+    var nbSpan = document.getElementById('nbCommentaires');
+    if (nbSpan) nbSpan.textContent = coms.length;
 
+    // Aucun commentaire
     if (coms.length === 0) {
-      div.innerHTML = `<div class="empty-state" style="padding:2rem">
-        <span class="icon">💬</span>
-        Aucun commentaire encore. Soyez le premier !
-      </div>`;
+      liste.innerHTML = '<div class="vide" style="padding:20px;"><span class="emoji">💬</span>Aucun commentaire pour l\'instant. Soyez le premier !</div>';
       return;
     }
 
-    div.innerHTML = coms.map((c, i) => `
-      <div class="comment-card" style="animation-delay:${i * 0.05}s">
-        <div class="comment-head">
-          <div class="comment-avatar">${initials(c.pseudo)}</div>
-          <span class="comment-name">${escapeHtml(c.pseudo)}</span>
-          <span class="comment-date">${formatDate(c.date_commentaire)}</span>
-        </div>
-        <div class="comment-text">${escapeHtml(c.contenu)}</div>
-      </div>
-    `).join('');
+    // Afficher chaque commentaire
+    liste.innerHTML = coms.map(function(c) {
+      return '' +
+        '<div class="com-item">' +
+          '<span class="com-auteur">' + escapeHtml(c.pseudo) + '</span>' +
+          '<span class="com-date">' + formatDate(c.date_commentaire) + '</span>' +
+          '<div class="com-texte">' + escapeHtml(c.contenu) + '</div>' +
+        '</div>';
+    }).join('');
   }
 
-  function soumettre() {
-    const pseudo  = document.getElementById('pseudo').value.trim();
-    const email   = document.getElementById('email').value.trim();
-    const contenu = document.getElementById('contenu').value.trim();
+  // ============================================================
+  // ENVOYER UN COMMENTAIRE
+  // ============================================================
+  function envoyerCommentaire() {
+    var pseudo     = document.getElementById('champPseudo').value.trim();
+    var email      = document.getElementById('champEmail').value.trim();
+    var commentaire = document.getElementById('champCommentaire').value.trim();
 
-    if (!pseudo)  { alert('Le pseudo est obligatoire.'); return; }
-    if (!contenu) { alert('Le commentaire est vide.');   return; }
+    if (!pseudo)      { alert('Le pseudo est obligatoire.'); return; }
+    if (!commentaire) { alert('Le commentaire est vide.');   return; }
 
-    DB.addCommentaire({ article_id: parseInt(articleId), pseudo, email, contenu });
+    // Ajouter le commentaire
+    DB.addCommentaire({ article_id: parseInt(articleId), pseudo: pseudo, email: email, contenu: commentaire });
 
-    document.getElementById('pseudo').value  = '';
-    document.getElementById('email').value   = '';
-    document.getElementById('contenu').value = '';
+    // Vider les champs
+    document.getElementById('champPseudo').value       = '';
+    document.getElementById('champEmail').value        = '';
+    document.getElementById('champCommentaire').value  = '';
 
-    const alertOk = document.getElementById('alertSuccess');
-    alertOk.style.display = 'block';
-    setTimeout(() => { alertOk.style.display = 'none'; }, 4000);
+    // Afficher le message de confirmation
+    var msgOk = document.getElementById('msgOk');
+    msgOk.style.display = 'block';
+    setTimeout(function() { msgOk.style.display = 'none'; }, 4000);
 
-    // Rafraîchir la liste immédiatement
+    // Rafraîchir la liste
     afficherCommentaires();
   }
+
 </script>
 </body>
 </html>
